@@ -4,10 +4,9 @@ This directory is used to store all the DNN training execution traces (profiles)
 
 ### DNN Training Execution Traces
 
-We provided some profiles generated on our A100 GPU here. They are `cudnnXXX.txt`, `cudnnXXXInputPF.txt`, `cudnnXXXPF.txt`, and `cudnnXXXWorkSpace.txt` under every model's directory. The content of these files is either execution timing profiles or workspace memory consumption of every GPU kernel. To correctly use the profiles in our simulator, users need to specify the path of these four files as the value of 
-`orig_kernel_time_file`,  `pf_kernel_time_file`, `input_pf_kernel_time_file`, `workspace_size_file` in the corresponding simulation config file. 
+We provided some profiles generated on our A100 GPU here. They are `cudnnXXX.txt`, `cudnnXXXInputPF.txt`, `cudnnXXXPF.txt`, and `cudnnXXXWorkSpace.txt` under every model's directory. The content of these files is either execution timing profiles or workspace memory consumption of every GPU kernel. To correctly use the profiles in our simulator, users need to specify the path of these four files as the value of `orig_kernel_time_file`,  `pf_kernel_time_file`, `input_pf_kernel_time_file`, `workspace_size_file` in the corresponding simulation config file. 
 
-If the user uses `"$G10_HOME"/src/resources/genconfig.py` to generate config files, our provided traces will automatically be properly used. 
+If the user uses `"$G10_HOME"/src/resources/genconfig.py` to generate config files, the traces in this folder will be automatically used. 
 
 ### Program Outputs
 
@@ -24,7 +23,7 @@ results/"$model_name"
 │   │   └── ...
 │   ├── run.log
 │   ├── sim_result.final
-│   ├── sim_result.KernelStall(optional)
+│   └── sim_result.KernelStall(optional)
 ├── $batchSize-$baselineName-$additionalParameter_TensorPeriodLog.py
 └── $batchSize-$baselineName-$additionalParameter_NNMemConsumptionLog.py
 ```
@@ -123,7 +122,7 @@ kernel_stat.iter1.pf_exe_time = 415807752634
 kernel_stat.iter1.slowdown = 1.01533
 kernel_stat.iter1.speedup = 5.69271
 ```
-Note that for UVM-based baselines, we usually run the simulation for 2 iterations and use the statistic for the second iteration (iter1).
+Note that except for FlashNeuron, we run the simulation for 2 iterations and we choose the statistics for the second iteration (iter1) when evaluating performace.
 
 ## sim_result.KernelStall
 This file is for analyzing the performance breakdown (fig 12-13).
