@@ -20,7 +20,7 @@ git clone git@github.com:HieronZhang/G10-Artifact.git
 
 Install the following dependencies:
 ```bash
-sudo apt install flex bison python3-pip
+sudo apt install flex bison tmux python3-pip
 pip3 install matplotlib networkx pandas PyPDF2
 ```
 
