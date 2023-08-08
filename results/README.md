@@ -1,12 +1,12 @@
 # Specification of Program Outputs
 
-This directory is used to store all the DNN training execution traces (profiles) and G10 program outputs. 
+This directory contains all the DNN training execution traces. It is also used as the output directory of the G10 program.
 
 ### DNN Training Execution Traces
 
-We provided some profiles generated on our A100 GPU here. They are `cudnnXXX.txt`, `cudnnXXXInputPF.txt`, `cudnnXXXPF.txt`, and `cudnnXXXWorkSpace.txt` under every model's directory. The content of these files is either execution timing profiles or workspace memory consumption of every GPU kernel. To correctly use the profiles in our simulator, users need to specify the path of these four files as the value of `orig_kernel_time_file`,  `pf_kernel_time_file`, `input_pf_kernel_time_file`, `workspace_size_file` in the corresponding simulation config file. 
+We provided some profiles generated on our A100 GPU here. They are `cudnnXXX.txt`, `cudnnXXXInputPF.txt`, `cudnnXXXPF.txt`, and `cudnnXXXWorkSpace.txt` under every model's directory. The content of each trace file is either the profiled execution time or workspace memory consumption of every CUDA kernel. To correctly use the traces in our simulator, users need to specify the paths of these four files as the value of `orig_kernel_time_file`,  `pf_kernel_time_file`, `input_pf_kernel_time_file`, `workspace_size_file` in the corresponding simulation config file.
 
-If the user uses `"$G10_HOME"/src/resources/genconfig.py` to generate config files, the traces in this folder will be automatically used. 
+If the user uses `src/resources/genconfig.py` to generate config files, the traces in this folder will be automatically used.
 
 ### Program Outputs
 
@@ -23,14 +23,14 @@ results/"$model_name"
 │   │   └── ...
 │   ├── run.log
 │   ├── sim_result.final
-│   └── sim_result.KernelStall(optional)
+│   └── sim_result.KernelStall  # optional
 ├── $batchSize-$baselineName-$additionalParameter_TensorPeriodLog.py
 └── $batchSize-$baselineName-$additionalParameter_NNMemConsumptionLog.py
 ```
 
 
 ## layers.config
-This file contains analyzed model OP/layer information. Users should see something like this:
+This file contains analyzed model operator/layer information. Users should see something like this:
 ```bash
 ______________________________________________________________________________
 Layer ID:3; Name:Conv2d (512,32,149,149)
@@ -94,7 +94,7 @@ _______________________________________________________________
 ```
 
 ## prefetch_guide.config
-This file includes the results of our Smart Tensor Migration Scheduling Algorithm (If the baseline type is G10("prefetch_lru")). Users should see something like this:
+This file includes the results of G10's Smart Tensor Migration Scheduling Algorithm. This output file is present only if the experiment config uses G10 (i.e., ``prefetch_lru''). Users should see something like this:
 ```bash
 Issued Time: 144 Tensor: 873 G:o From: Not_Known, To: In_ssd
 Issued Time: 144 Tensor: 864 G:x From: Not_Known, To: Not_present
