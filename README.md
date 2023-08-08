@@ -4,7 +4,7 @@ In this artifact, we provide the source code of G10 and the necessary instructio
 
 ## 0. Hardware and Software Dependencies
 
-The artifact can be executed on any x86 machine with at least 30 GB of main memory and at least 120 GB of disk space. We strongly recommend running the artifact on a workstation with multi-cores and at least 128 GB memory. The artifact needs a Linux environment (preferrably Ubuntu) and a compiler that supports C++14 standard.
+The artifact can be executed on any x86 machine with at least 30 GB of main memory and at least 120 GB of disk space. We strongly recommend running the artifact on a workstation with multi-cores and at least 128 GB memory. The artifact needs a Linux environment (preferably Ubuntu) and a compiler that supports the C++14 standard.
 
 ## 1. Installation
 
