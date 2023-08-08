@@ -5,8 +5,8 @@
 MAX_PROCESS_NUM=4
 # ---------------------------------------------------------------------------------------------
 
-# Prerequisite: flex bison
-## sudo apt install flex bison
+# Prerequisite: flex bison tmux
+## sudo apt install flex bison tmux python3-pip
 # Python prerequisite: matplotlib networkx pandas PyPDF2
 
 make clean
