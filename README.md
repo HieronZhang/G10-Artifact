@@ -4,35 +4,36 @@ In this artifact, we provide the source code of G10 and the necessary instructio
 
 ## 0. Hardware and Software Dependencies
 
-The artifact can be executed in any machine with at least 30 GB of main memory and at least 120 GB of disk space. We strongly recommend running the artifact on a workstation with multi-cores and at least 128 GB memory. The artifact needs a Linux environment with C++ 14 standard compilation supported.
+The artifact can be executed on any x86 machine with at least 30 GB of main memory and at least 120 GB of disk space. We strongly recommend running the artifact on a workstation with multi-cores and at least 128 GB memory. The artifact needs a Linux environment (preferrably Ubuntu) and a compiler that supports C++14 standard.
 
 ## 1. Installation
 
 ### 1.1 Downloading the Repository
-Use the following command to download the artifact repository:
+Use the following command to download the artifact:
 
 ```bash
-TODO(Zenodo)
+# TODO (Zenodo)
+git clone git@github.com:HieronZhang/G10-Artifact.git
 ```
 
 ### 1.2 Installation
 
-Before compilation, users will need to install a few dependencies:
+Install the following dependencies:
 ```bash
 sudo apt install flex bison python3-pip
 pip3 install matplotlib networkx pandas PyPDF2
 ```
 
-Then build the G10 executable (`gpg`):
+Build G10 (the output executable is named `gpg`):
 ```bash
-cd "$G10_HOME"/src
+cd G10-Artifact/src
 make clean
 make
 ```
 
 
 ## 2. Experiment Workflow
-This section describes the steps to generate and run the necessary experiments. We strongly recommend the reader follow the `src/resources/README.md` to understand more about each script used in this section. 
+This section describes the steps to generate and run the necessary experiments. We strongly recommend that the reader follow the `src/resources/README.md` to understand more about each script used in this section.
 
 ### 2.1 Gnenrating Configuration Files
 The first step is to generate appropriate config files. In this artifact, we provide the Python script `resources/genconfigs.py` to generate all the config files used in this artifact (in the `src/configs/` directory).
@@ -51,7 +52,7 @@ To run a single experiment, directly find its corresponding config file and use 
 
 The program will execute the Tensor Vitality Analysis and Smart Tensor Migration Algorithms, and do a performance simulation of the DNN training. The results will be generated in `"$G10_HOME"/results` directory. 
 
-For each experiment, our program will generate separate logs for analyzed DNN graph information, tensor vitality analysis results, smart tensor migration scheduling, and performance simulation results. See `"$G10_HOME"/results/README.md` for more details of our program's output.
+For each experiment, our program will generate separate logs for analyzed DNN graph information, tensor vitality analysis results, smart tensor migration scheduling, and performance simulation results. See `results/README.md` for more details of our program's output.
 
 ### 2.3 Launching Batched Experiments
 To run a large number of experiments at one time, we provide the `resources/run.sh` Shell script. It can use regular expressions to match multiple config files, and it will automatically spawn different experiments to multiple `tmux` windows for parallel execution.
@@ -83,7 +84,7 @@ To evaluate all the experiments more conveniently, we provide a Shell script, `a
 # The time for running this is about 124m17.909s (for MAX_PROCESS_NUM=6)
 
 ```
-Where `MAX_PROCESS_NUM` is the maximum allowed number of parallel experiments in the script. Note that users may have to change the `MAX_PROCESS_NUM` in the script, based on their machine's main memory capacity (Each experiment process needs a peak memory of about 28.5 GB). See the lines 1-6 of `artifact_run.sh`:
+The variable `MAX_PROCESS_NUM` is the maximum allowed number of parallel experiments in the script. Note that user may have to change the `MAX_PROCESS_NUM` based on their machine's main memory capacity (Each experiment requires a peak memory of about 28.5 GB). See lines 1-6 of `artifact_run.sh`:
 ```bash
 # --------------------------------- IMPORTART -------------------------------------------------
 # ! Please modify this number based on your machine's main memory capacity. One experiment process will need a peak memory of 28.5 GB.
@@ -182,17 +183,17 @@ python3 sensitivitySSDbw.py  # Figure 18 is output/OverallPerfSSDBW.pdf
 python3 SensitivityKernelVariation.py # Figure 19 is output/SensitivityVariation.pdf
 ```
 
-We have provided the expected result files in the directory `$G10_HOME/example_results`. To verify the results, one can compare the generated figures directly with those in the paper, or compare the data for each figure with the example results we provided.
+We have provided the expected result files in the directory `example_results`. To verify the results, one can compare the generated figures directly with those in the paper, or compare the data for each figure with the example results we provided.
 
 
 ## 4. Experiment Customization
 
 ### 4.1 Changing Simulation Configurations
-In addition to the provided configurations, users can also customize their own config files and evaluate other settings. The simplest way to do this is to modify the `resources/genconfigs.py` script. Note that we only provided DNN training execution traces(profiles) for some specific batch sizes. 
+In addition to the provided configurations, users can also customize their own config files and evaluate other settings. The simplest way to do this is to modify the `resources/genconfigs.py` script. Note that we only provided DNN training execution traces used in our paper. 
 
 ### 4.2 Custom DNN Training Profiling
-Users can also generate their own traces of DNN training on their own GPUs. It's also possible to generate traces for customized batch sizes. Custom profiling can be done by modifying the config files named "profile" rather than "sim", and running them with the G10 executable (`gpg`). Note that to do this, users have to first correctly install `CUDA` (11.0 and higher) Tool-kits with `cudnn` and `cublas` libraries. Before custom profiling, please make sure that the CUDA code generation part of our framework is built:
+Users can also generate their own traces of DNN training on their own GPUs. It's also possible to generate traces for customized batch sizes. Custom profiling can be done by modifying the config files named "profile" rather than "sim", and running them with the G10 executable (`gpg`). Note that to do this, users have to first correctly install `CUDA` (11.0 and higher) Tool-kits with `cudnn` and `cublas` libraries. Before profiling, please make sure that the CUDA code generation part of our framework is built:
 ```bash
-cd "$G10_HOME"/src/cudnn
+cd G10-Artifact/src/cudnn
 make clean && make
 ```
