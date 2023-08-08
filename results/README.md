@@ -24,6 +24,7 @@ results/"$model_name"
 │   ├── run.log
 │   ├── sim_result.final
 │   └── sim_result.KernelStall  # optional
+│   └── ...
 ├── $batchSize-$baselineName-$additionalParameter_TensorPeriodLog.py
 └── $batchSize-$baselineName-$additionalParameter_NNMemConsumptionLog.py
 ```
@@ -78,7 +79,7 @@ tensor6 Is weight (global)?: 0, Size in byte: 1454964736, Range:4008497152--5463
 ```
 
 ## interval.config 
-This file includes the results of Tensor Vitality Analysis. The inactive periods ("hidding intervals" in this file) and live periods are shown for every tensor. Users should see something like this:
+This file includes the results of the Tensor Vitality Analysis. The inactive periods ("Hiding intervals" in this file) and live periods are shown for every tensor. Users should see something like this:
 ```bash
 _______________________________________________________________
 tensor5 Is weight (global)?: 0, Size in byte: 1454964736, Range:2553532416--4008497152
@@ -122,7 +123,7 @@ kernel_stat.iter1.pf_exe_time = 415807752634
 kernel_stat.iter1.slowdown = 1.01533
 kernel_stat.iter1.speedup = 5.69271
 ```
-Note that except for FlashNeuron, we run the simulation for 2 iterations and we choose the statistics for the second iteration (iter1) when evaluating performace.
+Note that except for FlashNeuron, we run the simulation for two training iterations and we choose the statistics for the second iteration (iter1) when evaluating performance. This is because other designs will consider scheduling evictions of global tensors before the end of one iteration and fetching them after the beginning of the next iteration. This will cause a difference in the beginning situation between the first iteration and the following iterations. 
 
 ## sim_result.KernelStall
 This file is for analyzing the performance breakdown (fig 12-13).
