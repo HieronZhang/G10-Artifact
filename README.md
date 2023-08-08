@@ -12,7 +12,8 @@ The artifact can be executed in any machine with at least 30 GB of main memory a
 Use the following command to download the artifact repository:
 
 ```bash
-TODO(Zenodo)
+# TODO (Zenodo)
+git clone git@github.com:HieronZhang/G10-Artifact.git
 ```
 
 ### 1.2 Installation
