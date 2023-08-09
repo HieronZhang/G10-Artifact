@@ -97,7 +97,6 @@ MAX_PROCESS_NUM=4
 ## 3. Evaluation and Expected Results
 After specifying the `MAX_PROCESS_NUM`, to evaluate the artifact results, simply run:
 ```bash
-chmod +x artifact_run.sh
 ./artifact_run.sh
 ```
 

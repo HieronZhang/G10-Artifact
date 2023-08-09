@@ -12,13 +12,13 @@ MAX_PROCESS_NUM=4
 make clean
 make -j8
 cd resources
+
 # Generate config files
 python3 genconfigs.py
 
 #-------------------------------- Running Experiments -----------------------------------------------------------------------------------
 # Make sure there is no G10 experiment running in the background (in tmux)
 tmux kill-server
-chmod +x run.sh
 
 # First run experiments for figure 11-14
 ./run.sh -p "(BERT\/256|VIT\/1280|Inceptionv3\/1536|ResNet152\/1280|SENet154\/1024)-sim_(deepUM|prefetch_lru|FlashNeuron|G10GDSSSD|G10GDSFULL|lru)\.config" -dr -j $MAX_PROCESS_NUM
@@ -58,7 +58,7 @@ python3 figureDrawingDataPrepOverallPerformance.py  # The gathered data is store
 python3 figureDrawingDataPrepBreakdown.py  # The gathered data is stored in figure_drawing/overall_breakdown
 
 # Gather data for figure 13
-chmod +x figureDrawingDataPrepKernelCDF.sh && ./figureDrawingDataPrepKernelCDF.sh  # The gathered data is stored in figure_drawing/overall_slowdown_cdf
+./figureDrawingDataPrepKernelCDF.sh  # The gathered data is stored in figure_drawing/overall_slowdown_cdf
 
 # Gather data for figure 14
 python3 figureDrawingDataPrepTraffic.py  # The gathered data is stored in figure_drawing/overall_traffic
