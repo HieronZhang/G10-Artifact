@@ -199,4 +199,4 @@ make clean && make
 ```
 
 ## 5. Licence
-This project is licensed under the terms of the Apache 2.0 licence.
+This project is licenced under the terms of the Apache 2.0 licence.
