@@ -197,3 +197,6 @@ Users can also generate their own traces of DNN training on their own GPUs. It's
 cd G10-Artifact/src/cudnn
 make clean && make
 ```
+
+## 5. Licence
+This project is licensed under the terms of the Apache 2.0 licence.
