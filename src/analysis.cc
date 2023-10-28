@@ -400,6 +400,8 @@ unsigned long Tensor::getGlobalOffset() {
 
 //For transformers
 void transformer_op_datalow_pass(int borden){
+    std::unordered_set<int> layer_output_tensors;
+
     for (int i = 0; i < forward_ops.size(); i++)
     {
         Model_OP* curr_op = forward_ops[i];
@@ -408,6 +410,7 @@ void transformer_op_datalow_pass(int borden){
         if (transformer_tensors.find(curr_op->op_id)!=transformer_tensors.end())
         {
             OP_tensor out = transformer_tensors[curr_op->op_id];
+            layer_output_tensors.insert(curr_op->op_id);
             curr_op->output_dim = out.dim;
             curr_op->output_dims.reserve(out.dim);
             for (int j : out.dims)
@@ -474,6 +477,10 @@ void transformer_op_datalow_pass(int borden){
                     }
                     bool global = false;
                     if (in_curr.tensor_id < borden)
+                    {
+                        global = true;
+                    }
+                    if (curr_op->type!="GatherV2" && layer_output_tensors.find(in_curr.tensor_id)==layer_output_tensors.end())
                     {
                         global = true;
                     }

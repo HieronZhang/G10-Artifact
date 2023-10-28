@@ -12,10 +12,15 @@
 #include <unordered_map>
 
 
+#define BATCH_CODE 99
+#define SEQ_LEN_CODE 66
+
+
 int is_resnet = 0;
 int is_inception = 0;
 int is_senet = 0;
 int batch_size;
+int seq_len;
 int input_H;
 int input_W;
 extern int borden;
@@ -746,6 +751,13 @@ void transformer_parse(std::string filename){
     }
     int op_id;
     int count = 0;
+    
+    int auto_borden;
+    fin>>auto_borden;
+    if (auto_borden) {
+        borden = auto_borden;
+    }
+
     while (fin>>op_id)
     {
         Model_OP* new_op = new Model_OP;
@@ -765,9 +777,17 @@ void transformer_parse(std::string filename){
             for (int j = 0; j < new_op->input_tensors[i].dim; j++)
             {
                 fin>>new_op->input_tensors[i].dims[j];
-                if (new_op->input_tensors[i].dims[j]==99)
+                if (new_op->input_tensors[i].dims[j] == BATCH_CODE)
                 {
                     new_op->input_tensors[i].dims[j] = batch_size;
+                }
+                if (new_op->input_tensors[i].dims[j] == SEQ_LEN_CODE)
+                {
+                    new_op->input_tensors[i].dims[j] = seq_len;
+                }
+                if (new_op->input_tensors[i].dims[j] == BATCH_CODE*SEQ_LEN_CODE)
+                {
+                    new_op->input_tensors[i].dims[j] = batch_size*seq_len;
                 }
             }
             transformer_tensors[new_op->input_tensors[i].tensor_id] = new_op->input_tensors[i];

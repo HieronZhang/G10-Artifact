@@ -16,6 +16,8 @@
 #include <memory>
 #include <stdexcept>
 #include <array>
+#include <unordered_map>
+#include <tuple>
 
 using std::map;
 using std::ceil;
@@ -30,20 +32,27 @@ using std::unique_ptr;
 using std::runtime_error;
 
 bool is_input_pf_only;
+std::unordered_map<string, string> profiled_results;
 
 // see the meaning of the parameter argv2 in the file cudnn/main.cu main function documentation
 static string exec(const CUDAKernelType type, const int argv2, const vector<long> &args) {
     array<char, 128> buffer;
     string result;
     string cmd = "./cudnn/main " + print_kerneltype_array[type] + " " + to_string(argv2);
-    for (long arg : args)
+    for (long arg : args) {
         cmd += " " + to_string(arg);
-    printf("%s: ", cmd.c_str());
-    unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (!pipe) throw runtime_error("popen() failed!");
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
     }
+    printf("%s: ", cmd.c_str());
+
+    if (profiled_results.find(cmd) == profiled_results.end()) {
+        unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) throw runtime_error("popen() failed!");
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+            result += buffer.data();
+        }
+        profiled_results[cmd] = result;
+    }
+    result = profiled_results[cmd];
     printf("%s\n", result.c_str());
     return result;
 }
@@ -53,12 +62,17 @@ static string exec(const string& filename, const int argv2) {
     string result;
     string cmd = "stdbuf --output=L ./cudnn/main " + filename + " " + to_string(argv2);
     printf("%s:\n", cmd.c_str());
-    unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (!pipe) throw runtime_error("popen() failed!");
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        printf("%s", buffer.data());
-        result += buffer.data();
+
+    if (profiled_results.find(cmd) == profiled_results.end()) {
+        unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) throw runtime_error("popen() failed!");
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+            printf("%s", buffer.data());
+            result += buffer.data();
+        }
     }
+    result = profiled_results[cmd];
+    printf("%s\n", result.c_str());
     return result;
 }
 
@@ -2131,6 +2145,7 @@ extern int num_iteration;
 int num_threads = 0;
 bool is_individual = 1;
 extern string output_folder_name;
+extern string file_pf_string;
 
 /**
  * @brief generate all the code according to the model and flags specified by the user
@@ -3462,9 +3477,11 @@ void main_code_generation() {
 
 void cudnn_profiling(bool individual_run, bool workspace_only) {
     ofstream fout, fconfigout, fworkspaceout;
-    string filename = "./" + output_folder_name + "/cudnn_kernel_times.txt";
+    string short_output_folder_name(output_folder_name);
+    short_output_folder_name.erase(output_folder_name.length()-file_pf_string.length(), file_pf_string.length());
+    string filename = "./" + output_folder_name + ".txt";
     string config_filename = "./" + output_folder_name + "/cudnn_input_data.txt";
-    string workspace_filename = "./" + output_folder_name + "/cudnn_workspace_sizes.txt";
+    string workspace_filename = "./" + short_output_folder_name + "Workspace.txt";
     // write to profiling result file
     if (!workspace_only) {
       fout.open(filename, ofstream::out | ofstream::trunc);
@@ -3473,365 +3490,381 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
       fout.open(filename, ofstream::app);
     }
     // write to workspace size file anyway
-    fworkspaceout.open(workspace_filename, ofstream::out | ofstream::trunc);
-    Assert(fworkspaceout.good());
-    fworkspaceout.close();
-    fworkspaceout.open(workspace_filename, ofstream::app);
+
+    if (file_pf_string.length()==0) {
+        fworkspaceout.open(workspace_filename, ofstream::out | ofstream::trunc);
+        Assert(fworkspaceout.good());
+        fworkspaceout.close();
+        fworkspaceout.open(workspace_filename, ofstream::app);
+    }
     // write to config file anyway
-    fconfigout.open(config_filename, ofstream::out | ofstream::trunc);
-    Assert(fconfigout.good());
-    fconfigout.close();
-    fconfigout.open(config_filename, ofstream::app);
+    // fconfigout.open(config_filename, ofstream::out | ofstream::trunc);
+    // Assert(fconfigout.good());
+    // fconfigout.close();
+    // fconfigout.open(config_filename, ofstream::app);
 
     vector<long> args;
     for (CUDAKernel kernel : kernel_list) {
         if (individual_run)
             iprintf("%d: ", kernel.kernel_id);
         args.clear();
+
+
+
+        /////////////////////////////////////////////////////////////////////
         if (kernel.parent_layer)
         {
-          switch (kernel.type) {
-              case Conv2d_Forward:
-              case Conv2d_Backward_Input:
-              case Conv2d_Backward_Weight: {
-                  Conv2d *layer = dynamic_cast<Conv2d *>(kernel.parent_layer->operatorr);
-                  Assert(layer != nullptr);
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  args.push_back(layer->out_channels);
-                  args.push_back(layer->kernel_size_r);
-                  args.push_back(layer->kernel_size_s);
-                  args.push_back(layer->padding_0);
-                  args.push_back(layer->padding_1);
-                  args.push_back(layer->stride_0);
-                  args.push_back(layer->stride_1);
-                  break;
-              }
-              case ReLU_Forward:
-              case ReLU_Backward: {
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  break;
-              }
-              case MaxPool2d_Forward:
-              case MaxPool2d_Backward: {
-                  MaxPool2d *layer = dynamic_cast<MaxPool2d *>(kernel.parent_layer->operatorr);
-                  Assert(layer != nullptr);
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  args.push_back(layer->kernel_size);
-                  args.push_back(layer->kernel_size);
-                  args.push_back(layer->padding);
-                  args.push_back(layer->padding);
-                  args.push_back(layer->stride);
-                  args.push_back(layer->stride);
-                  break;
-              }
-              case AdaptiveAvgPool2d_Forward:
-              case AdaptiveAvgPool2d_Backward: {
-                  AdaptiveAvgPool2d *layer = dynamic_cast<AdaptiveAvgPool2d *>(kernel.parent_layer->operatorr);
-                  Assert(layer != nullptr);
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  args.push_back(kernel.parent_layer->H / layer->outputsize_0);
-                  args.push_back(kernel.parent_layer->W / layer->outputsize_1);
-                  args.push_back(0);
-                  args.push_back(0);
-                  args.push_back(layer->outputsize_0);
-                  args.push_back(layer->outputsize_1);
-                  break;
-              }
-              case Linear_Forward:
-              case Linear_Backward_Input:
-              case Linear_Backward_Weight:
-              case Linear_Backward_Bias: {
-                  Linear *layer = dynamic_cast<Linear *>(kernel.parent_layer->operatorr);
-                  Assert(layer != nullptr);
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  args.push_back(layer->in_features);
-                  args.push_back(layer->out_features);
-                  break;
-              }
-              case BatchNorm2d_Forward:
-              case BatchNorm2d_Backward: {
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  break;
-              }
-              case Add_Forward:
-              case Add_MultiGredient: {
-                  args.push_back(kernel.parent_layer->other_inputs.size() + 1);
-                  args.push_back(kernel.parent_layer->output_activation->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case Concat_Forward:
-              case Concat_Backward: {
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  args.push_back(kernel.parent_layer->input_Cs.size());
-                  for (int input_c : kernel.parent_layer->input_Cs)
-                    args.push_back(input_c);
-                  break;
-              }
-              case Scale_Forward:
-              case Scale_Backward: {
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->scale_H);
-                  args.push_back(kernel.parent_layer->scale_W);
-                  break;
-              }
-              case Dropout_Forward:
-              case Dropout_Backward: {
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  args.push_back(kernel.parent_layer->H);
-                  args.push_back(kernel.parent_layer->W);
-                  break;
-              }
-              case Conv2d_Apply_Grad: {
-                  args.push_back(kernel.parent_layer->weight->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case Linear_Apply_Grad_Bias: {
-                  args.push_back(kernel.parent_layer->bias->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case Linear_Apply_Grad_Weight: {
-                  args.push_back(kernel.parent_layer->weight->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case BatchNorm2d_Apply_Grad: {
-                  args.push_back(kernel.parent_layer->alpha_and_beta->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case LoadData_A0: {
-                  args.push_back((long) kernel.parent_layer->N * kernel.parent_layer->C * kernel.parent_layer->H * kernel.parent_layer->W);
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              case makeLoss: {
-                  args.push_back(kernel.parent_layer->output_activation->size_in_byte / sizeof(float));
-                  args.push_back(kernel.parent_layer->N);
-                  args.push_back(kernel.parent_layer->C);
-                  break;
-              }
-              default:
-                  Assert(false);
-          }
+            switch (kernel.type) {
+                case Conv2d_Forward:
+                case Conv2d_Backward_Input:
+                case Conv2d_Backward_Weight: {
+                    Conv2d *layer = dynamic_cast<Conv2d *>(kernel.parent_layer->operatorr);
+                    Assert(layer != nullptr);
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    args.push_back(layer->out_channels);
+                    args.push_back(layer->kernel_size_r);
+                    args.push_back(layer->kernel_size_s);
+                    args.push_back(layer->padding_0);
+                    args.push_back(layer->padding_1);
+                    args.push_back(layer->stride_0);
+                    args.push_back(layer->stride_1);
+                    break;
+                }
+                case ReLU_Forward:
+                case ReLU_Backward: {
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    break;
+                }
+                case MaxPool2d_Forward:
+                case MaxPool2d_Backward: {
+                    MaxPool2d *layer = dynamic_cast<MaxPool2d *>(kernel.parent_layer->operatorr);
+                    Assert(layer != nullptr);
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    args.push_back(layer->kernel_size);
+                    args.push_back(layer->kernel_size);
+                    args.push_back(layer->padding);
+                    args.push_back(layer->padding);
+                    args.push_back(layer->stride);
+                    args.push_back(layer->stride);
+                    break;
+                }
+                case AdaptiveAvgPool2d_Forward:
+                case AdaptiveAvgPool2d_Backward: {
+                    AdaptiveAvgPool2d *layer = dynamic_cast<AdaptiveAvgPool2d *>(kernel.parent_layer->operatorr);
+                    Assert(layer != nullptr);
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    args.push_back(kernel.parent_layer->H / layer->outputsize_0);
+                    args.push_back(kernel.parent_layer->W / layer->outputsize_1);
+                    args.push_back(0);
+                    args.push_back(0);
+                    args.push_back(layer->outputsize_0);
+                    args.push_back(layer->outputsize_1);
+                    break;
+                }
+                case Linear_Forward:
+                case Linear_Backward_Input:
+                case Linear_Backward_Weight:
+                case Linear_Backward_Bias: {
+                    Linear *layer = dynamic_cast<Linear *>(kernel.parent_layer->operatorr);
+                    Assert(layer != nullptr);
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    args.push_back(layer->in_features);
+                    args.push_back(layer->out_features);
+                    break;
+                }
+                case BatchNorm2d_Forward:
+                case BatchNorm2d_Backward: {
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    break;
+                }
+                case Add_Forward:
+                case Add_MultiGredient: {
+                    args.push_back(kernel.parent_layer->other_inputs.size() + 1);
+                    args.push_back(kernel.parent_layer->output_activation->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case Concat_Forward:
+                case Concat_Backward: {
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    args.push_back(kernel.parent_layer->input_Cs.size());
+                    for (int input_c : kernel.parent_layer->input_Cs)
+                      args.push_back(input_c);
+                    break;
+                }
+                case Scale_Forward:
+                case Scale_Backward: {
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->scale_H);
+                    args.push_back(kernel.parent_layer->scale_W);
+                    break;
+                }
+                case Dropout_Forward:
+                case Dropout_Backward: {
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    args.push_back(kernel.parent_layer->H);
+                    args.push_back(kernel.parent_layer->W);
+                    break;
+                }
+                case Conv2d_Apply_Grad: {
+                    args.push_back(kernel.parent_layer->weight->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case Linear_Apply_Grad_Bias: {
+                    args.push_back(kernel.parent_layer->bias->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case Linear_Apply_Grad_Weight: {
+                    args.push_back(kernel.parent_layer->weight->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case BatchNorm2d_Apply_Grad: {
+                    args.push_back(kernel.parent_layer->alpha_and_beta->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case LoadData_A0: {
+                    args.push_back((long) kernel.parent_layer->N * kernel.parent_layer->C * kernel.parent_layer->H * kernel.parent_layer->W);
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                case makeLoss: {
+                    args.push_back(kernel.parent_layer->output_activation->size_in_byte / sizeof(float));
+                    args.push_back(kernel.parent_layer->N);
+                    args.push_back(kernel.parent_layer->C);
+                    break;
+                }
+                default:
+                    Assert(false);
+            }
         }
         else
         {
-          switch (kernel.type) {
-              case GatherV2_Forward:
-              case GatherV2_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(op->output_tensor->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case ReLU_Forward:
-              case ReLU_Backward:
-              case SoftmaxBasic_Forward:
-              case SoftmaxBasic_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  long values[4];
-                  for (int i = 3; i >= 0; i--)
-                  {
-                    if (i<op->output_dims.size() && i>=0)
+            switch (kernel.type) {
+                case GatherV2_Forward:
+                case GatherV2_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->output_tensor->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case ReLU_Forward:
+                case ReLU_Backward:
+                case SoftmaxBasic_Forward:
+                case SoftmaxBasic_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    long values[4];
+                    int i0_dim_size = op->input_tensors[0].dims.size();
+                    int i1_dim_size = op->input_tensors[1].dims.size();
+                    for (int i = 3; i >= 0; i--)
                     {
-                      values[i] = op->output_dims[i];
+                      if (3-i<i0_dim_size && i>=0)
+                      {
+                        values[i] = op->input_tensors[0].dims[i+i0_dim_size-4];
+                      }
+                      else
+                      {
+                        values[i] = 1;
+                      }
+
                     }
-                    else
+                    args.push_back(values[1]);
+                    args.push_back(values[0]);
+                    args.push_back(values[2]);
+                    args.push_back(values[3]);
+                    // std::cout << values[0] << values[1] << values[2] << values[3] << "\n";
+                    // std::cout << args[0] << args[1] << args[2] << args[3] << args[4] << "\n";
+                    break;
+                }
+                case Conv2d_Forward:
+                case Conv2d_Backward_Input:
+                case Conv2d_Backward_Weight: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    long values[4];
+                    args.push_back(op->input_tensors[0].dims[0]);
+                    args.push_back(op->input_tensors[0].dims[1]);
+                    args.push_back(op->input_tensors[0].dims[2]);
+                    args.push_back(op->input_tensors[0].dims[3]);
+                    args.push_back(op->input_tensors[1].dims[0]);
+                    args.push_back(op->input_tensors[1].dims[2]);
+                    args.push_back(op->input_tensors[1].dims[3]);
+                    args.push_back(0);
+                    args.push_back(0);
+                    args.push_back(32);
+                    args.push_back(32);
+                    break;
+                }
+                case Linear_Forward:
+                case Linear_Backward_Input:
+                case Linear_Backward_Weight:
+                case Linear_Backward_Bias: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    long values[4];
+                    int i0_dim_size = op->input_tensors[0].dims.size();
+                    int i1_dim_size = op->input_tensors[1].dims.size();
+                    for (int i = 3; i >= 0; i--)
                     {
-                      values[i] = 1;
+                      if (3-i<i0_dim_size && i>=0)
+                      {
+                        values[i] = op->input_tensors[0].dims[i+i0_dim_size-4];
+                      }
+                      else
+                      {
+                        values[i] = 1;
+                      }
+
                     }
-                    
-                  }
-                  args.push_back(values[0]);
-                  args.push_back(values[1]);
-                  args.push_back(values[2]);
-                  args.push_back(values[3]);
-                  break;
-              }
-              case Conv2d_Forward:
-              case Conv2d_Backward_Input:
-              case Conv2d_Backward_Weight: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  long values[4];
-                  args.push_back(op->input_tensors[0].dims[0]);
-                  args.push_back(op->input_tensors[0].dims[1]);
-                  args.push_back(op->input_tensors[0].dims[2]);
-                  args.push_back(op->input_tensors[0].dims[3]);
-                  args.push_back(op->input_tensors[1].dims[0]);
-                  args.push_back(op->input_tensors[1].dims[2]);
-                  args.push_back(op->input_tensors[1].dims[3]);
-                  args.push_back(0);
-                  args.push_back(0);
-                  args.push_back(32);
-                  args.push_back(32);
-                  break;
-              }
-              case Linear_Forward:
-              case Linear_Backward_Input:
-              case Linear_Backward_Weight:
-              case Linear_Backward_Bias: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  long values[4];
-                  for (int i = 3; i >= 0; i--)
-                  {
-                    if (i<op->input_tensors[0].dims.size() && i>=0)
+                    args.push_back(values[0]);
+                    args.push_back(values[1]);
+                    args.push_back(values[2]);
+                    args.push_back(values[3]);
+                    args.push_back(op->input_tensors[1].dims[i1_dim_size-2]);
+                    args.push_back(op->input_tensors[1].dims[i1_dim_size-1]);
+                    break;
+                }
+                case Add_Forward:
+                case Add_Backward: 
+                case Subtract_Forward:
+                case Subtract_Backward:{
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(2);
+                    args.push_back(op->output_tensor->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case Add_MultiGredient: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->d_output_tensors.size());
+                    args.push_back(op->d_output_tensors[0]->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case BatchMatMul_Forward:
+                case BatchMatMul_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    long values[4];
+                    int i0_dim_size = op->input_tensors[0].dims.size();
+                    int i1_dim_size = op->input_tensors[1].dims.size();
+                    for (int i = 3; i >= 0; i--)
                     {
-                      values[i] = op->input_tensors[0].dims[i];
+                      if (3-i<i0_dim_size && i>=0)
+                      {
+                        values[i] = op->input_tensors[0].dims[i+i0_dim_size-4];
+                      }
+                      else
+                      {
+                        values[i] = 1;
+                      }
+
                     }
-                    else
-                    {
-                      values[i] = 1;
-                    }
-                    
-                  }
-                  args.push_back(values[0]);
-                  args.push_back(values[1]);
-                  args.push_back(values[2]);
-                  args.push_back(values[3]);
-                  args.push_back(op->input_tensors[1].dims[0]);
-                  args.push_back(op->input_tensors[1].dims[1]);
-                  break;
-              }
-              case Add_Forward:
-              case Add_Backward: 
-              case Subtract_Forward:
-              case Subtract_Backward:{
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(2);
-                  args.push_back(op->output_tensor->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case Add_MultiGredient: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(op->d_output_tensors.size());
-                  args.push_back(op->d_output_tensors[0]->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case BatchMatMul_Forward:
-              case BatchMatMul_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  long values[4];
-                  for (int i = 3; i >= 0; i--)
-                  {
-                    if (i<op->input_tensors[0].dims.size() && i>=0)
-                    {
-                      values[i] = op->input_tensors[0].dims[i];
-                    }
-                    else
-                    {
-                      values[i] = 1;
-                    }
-                    
-                  }
-                  args.push_back(values[0]);
-                  args.push_back(values[1]);
-                  args.push_back(values[2]);
-                  args.push_back(values[3]);
-                  args.push_back(op->input_tensors[1].dims[2]);
-                  args.push_back(op->input_tensors[1].dims[3]);
-                  break;
-              }
-              case Divide_Forward:
-              case Divide_Backward_A:
-              case Divide_Backward_B:
-              case Multiply_Forward:
-              case Multiply_Backward:
-              case Tanh_Forward:
-              case Tanh_Backward:
-              case Erf_Forward:
-              case Erf_Backward:
-              case Power_Forward:
-              case Power_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(op->output_tensor->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case Sqrt_Forward:
-              case Sqrt_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(op->input_tensors[0].tensor->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case Sum_Forward:
-              case Sum_Backward: {
-                  Model_OP *op = kernel.parent_op;
-                  Assert(op != nullptr);
-                  args.push_back(op->output_tensor->size_in_byte / 4);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  args.push_back(op->input_tensors[0].tensor->size_in_byte / op->output_tensor->size_in_byte);
-                  break;
-              }
-              case Apply_Grad:
-              case Linear_Apply_Grad_Weight: {
-                  auto it = kernel.outputs.begin();
-                  long val = (*it)->size_in_byte / 4;
-                  args.push_back(val);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              case makeLoss: {
-                  auto it = kernel.outputs.begin();
-                  long val = (*it)->size_in_byte / 4;
-                  args.push_back(val);
-                  args.push_back(512);
-                  args.push_back(1024);
-                  break;
-              }
-              default:
-                  Assert(false);
-          }
+                    args.push_back(values[0]);
+                    args.push_back(values[1]);
+                    args.push_back(values[2]);
+                    args.push_back(values[3]);
+                    args.push_back(op->input_tensors[1].dims[i1_dim_size-2]);
+                    args.push_back(op->input_tensors[1].dims[i1_dim_size-1]);
+                    break;
+                }
+                case Divide_Forward:
+                case Divide_Backward_A:
+                case Divide_Backward_B:
+                case Multiply_Forward:
+                case Multiply_Backward:
+                case Tanh_Forward:
+                case Tanh_Backward:
+                case Erf_Forward:
+                case Erf_Backward:
+                case Power_Forward:
+                case Power_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->output_tensor->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case Sqrt_Forward:
+                case Sqrt_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->input_tensors[0].tensor->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case Sum_Forward:
+                case Sum_Backward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->output_tensor->size_in_byte / 4);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    args.push_back(op->input_tensors[0].tensor->size_in_byte / op->output_tensor->size_in_byte);
+                    break;
+                }
+                case Apply_Grad:
+                case Linear_Apply_Grad_Weight: {
+                    auto it = kernel.outputs.begin();
+                    long val = (*it)->size_in_byte / 4;
+                    args.push_back(val);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                case makeLoss: {
+                    auto it = kernel.outputs.begin();
+                    long val = (*it)->size_in_byte / 4;
+                    args.push_back(val);
+                    args.push_back(512);
+                    args.push_back(1024);
+                    break;
+                }
+                default:
+                    Assert(false);
+            }
         }
+        /////////////////////////////////////////////////////////////////////
         
         
         
@@ -3857,43 +3890,48 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                 fout.flush();
             }
             // kernel workspace
-            result = exec(kernel.type, 2, args);
-            fworkspaceout << string(num_prefilling_zeros, '0') << to_string(kernel.kernel_id) << " " << result << "\n";
-            fworkspaceout.flush();
-        }
-        fconfigout << print_kerneltype_array[kernel.type] << " ";
-        for (long arg : args)
-            fconfigout << arg << " ";
-            
-        if (kernel.type != LoadData_A0) {
-            if (is_input_pf_only) {
-                fconfigout << "1 0 ";
-            } else if (is_UVM) {
-                fconfigout << "0 0 ";
-            } else {
-                fconfigout << "1 1 ";
+            if (file_pf_string.length()==0) {
+                result = exec(kernel.type, 2, args);
+                fworkspaceout << string(num_prefilling_zeros, '0') << to_string(kernel.kernel_id) << " " << result << "\n";
+                fworkspaceout.flush();
             }
         }
-        fconfigout << "\n";
-        fconfigout.flush();
+        // fconfigout << print_kerneltype_array[kernel.type] << " ";
+        // for (long arg : args)
+        //     fconfigout << arg << " ";
+            
+        // if (kernel.type != LoadData_A0) {
+        //     if (is_input_pf_only) {
+        //         fconfigout << "1 0 ";
+        //     } else if (is_UVM) {
+        //         fconfigout << "0 0 ";
+        //     } else {
+        //         fconfigout << "1 1 ";
+        //     }
+        // }
+        // fconfigout << "\n";
+        // fconfigout.flush();
     }
-    fconfigout.close();
-    iprintf("CUDNN profile input file have been saved to <%s>\n", config_filename.c_str());
-    if (!individual_run) {
-        string result;
-        iprintf("CUDNN workspace start grouped run\n", "");
-        result = exec(config_filename, 2);
-        fworkspaceout << result;
-        if (!workspace_only) {
-            iprintf("CUDNN profile start grouped run\n", "");
-            result = exec(config_filename, is_UVM);
-            fout << result;
+    // fconfigout.close();
+    // iprintf("CUDNN profile input file have been saved to <%s>\n", config_filename.c_str());
+
+    if (file_pf_string.length()==0) {
+        if (!individual_run) {
+            string result;
+            iprintf("CUDNN workspace start grouped run\n", "");
+            result = exec(config_filename, 2);
+            fworkspaceout << result;
+            if (!workspace_only) {
+                iprintf("CUDNN profile start grouped run\n", "");
+                result = exec(config_filename, is_UVM);
+                fout << result;
+            }
+            fworkspaceout.close();
+            iprintf("CUDNN workspace size file have been saved to <%s>\n", workspace_filename.c_str());
+        } else {
+            fworkspaceout.close();
+            iprintf("CUDNN workspace size file have been saved to <%s>\n", workspace_filename.c_str());
         }
-        fworkspaceout.close();
-        iprintf("CUDNN workspace size file have been saved to <%s>\n", workspace_filename.c_str());
-    } else {
-        fworkspaceout.close();
-        iprintf("CUDNN workspace size file have been saved to <%s>\n", workspace_filename.c_str());
     }
     if (!workspace_only) {
         fout.close();

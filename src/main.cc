@@ -35,6 +35,7 @@ extern int is_resnet;
 extern int is_inception;
 extern int is_senet;
 extern int batch_size;
+extern int seq_len;
 extern int input_H;
 extern int input_W;
 extern int num_threads;
@@ -103,6 +104,7 @@ std::string workspace_size_file;
 std::string pf_kernel_time_file;
 std::string stat_output_file;
 std::string output_folder_name;
+std::string file_pf_string;
 // simulation switches
 bool is_simulation = true;
 bool output_override = false;
@@ -416,6 +418,7 @@ int main(int argc, char *argv[]) {
 
         // general settings
         if (command == "output_folder")                 { output_folder_name = value; }
+        else if (command == "file_pf_string")           { file_pf_string = value; }
         else if (command == "output_override")          { output_override = std::stoi(value) != 0; }
         else if (command == "is_simulation")            { is_simulation = std::stoi(value) != 0; }
         else if (command == "is_profiling")             { is_simulation = std::stoi(value) == 0; }
@@ -432,6 +435,7 @@ int main(int argc, char *argv[]) {
         else if (command == "is_transformer")           { is_transformer = std::stoi(value); }
         else if (command == "trans_borden")             { borden = std::stoi(value); }
         else if (command == "batch_size")               { batch_size = std::stoi(value); }
+        else if (command == "seq_len")                  { seq_len = std::stoi(value); }
         else if (command == "input_H")                  { input_H = std::stoi(value); }
         else if (command == "input_W")                  { input_W = std::stoi(value); }
         else if (command == "num_iteration")            { num_iteration = std::stoi(value); }
@@ -698,7 +702,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
-        give_eviction_guide();
+        // give_eviction_guide();
         
         // r = new RedirStdOut("evc_guide_compressed.config");
         // int max_len = 0, max_idx = -1;
@@ -802,28 +806,28 @@ int main(int argc, char *argv[]) {
         // print_eviction_guide_table();
         // delete r;
 
-        r = new RedirStdOut("pre_dealloc.config");
-        scheduling_prefetch();
-        delete r;
+        // r = new RedirStdOut("pre_dealloc.config");
+        // scheduling_prefetch();
+        // delete r;
 
-        // prefetch guide
-        r = new RedirStdOut("prefetch_guide.config");
-        print_prefetch_table();
-        delete r;
+        // // prefetch guide
+        // r = new RedirStdOut("prefetch_guide.config");
+        // print_prefetch_table();
+        // delete r;
 
         
 
-        // real memory usage
-        r = new RedirStdOut("real_mem.config");
-        print_GPU_mem_really_in_use();
-        delete r;
+        // // real memory usage
+        // r = new RedirStdOut("real_mem.config");
+        // print_GPU_mem_really_in_use();
+        // delete r;
 
-        // kernel time table
-        r = new RedirStdOut("kernel_time_table.config");
-        for (int i = 0; i < kernel_list.size(); i++) {
-            std::cout << kernel_time_table[i] << std::endl;
-        }
-        delete r;
+        // // kernel time table
+        // r = new RedirStdOut("kernel_time_table.config");
+        // for (int i = 0; i < kernel_list.size(); i++) {
+        //     std::cout << kernel_time_table[i] << std::endl;
+        // }
+        // delete r;
 
 
 
@@ -911,6 +915,8 @@ int main(int argc, char *argv[]) {
         
         motiv_1.close();
 
+        // return 0;
+
         filenaeme = argv1+"_TensorPeriodLog.py";
         std::ofstream motiv_2(filenaeme);
         motiv_2 << "sd_size = [";
@@ -936,9 +942,11 @@ int main(int argc, char *argv[]) {
 
 
         motiv_2.close();
+
+        return 0;
         
         
-/***********************************Getting Motivation Number   End***************************************/
+        /***********************************Getting Motivation Number   End***************************************/
 
 
         nprintf("Average interval time: %f ms\n\n", 
@@ -975,12 +983,17 @@ int main(int argc, char *argv[]) {
         iprintf("\nAnalysis\n", "");
         stat.prepareOutputFiles(true);
         stat.analyzeStat();
+
+
+    /**************************************Profiling Kernels***************************************/
+
+
     } else {
         if (is_cudnn) {
             iprintf("Generating main code -- CUDNN mode\n", "");
             auto start_time = high_resolution_clock::now();
-            // cudnn_profiling(true);          // normal run, individual
-            cudnn_profiling(false);         // normal run, grouped
+            cudnn_profiling(true);          // normal run, individual
+            // cudnn_profiling(false);         // normal run, grouped
             // cudnn_profiling(false, true);   // workspace only
             duration<float> fsec = high_resolution_clock::now() - start_time;
             iprintf("Profiling duration: %fs (%fms)\n", fsec.count(), fsec.count() * 1000);

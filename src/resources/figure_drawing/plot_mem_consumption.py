@@ -62,8 +62,8 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
 
     import pandas as pd
 
-    results["active"] = pd.Series(results["active"]).rolling(12).max().dropna().tolist()
-    results["all"] = pd.Series(results["all"]).rolling(6).max().dropna().tolist()
+    results["active"] = pd.Series(results["active"]).rolling(8).max().dropna().tolist()
+    results["all"] = pd.Series(results["all"]).rolling(1).max().dropna().tolist()
 
     for i, (plot_policy, series) in enumerate(results.items()):
         if cumulative:
@@ -93,7 +93,8 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
         # plt.yticks(np.arange(num_yticks) * ytick_gap)
     ax.grid(which='major', axis='y', color='#000000', linestyle='--')
     # ax.tight_layout()
-    ax.set_yticklabels(['{:0.0%}'.format(i*max_y_value/max_y_value) for i in ax.get_yticks()])
+    # ax.set_yticks([i for i in ax.get_yticks()])
+    ax.set_yticklabels([f"{i:.1}%" if i < 1 else f"{int(i):d}%" for i in [i * 100 for i in ax.get_yticks()]])
     # ax.savefig(f"{filename}")
     # ax.clf()
 
@@ -142,65 +143,34 @@ def plot_multi_timeline(multi_results, filename, xlabel="Hours", ylabel="Migrate
 
 from fig_common import *
 
-title = "dnn_mem_consumption"
-Figure = plt.figure(figsize=(8, 10))
-PDF = PdfPages("output/" + title + ".pdf")
+batch_sizes = [4, 8, 16, 32, 64, 128, 256]
+model_names = ["OPT_1.3", "OPT_2.7", "OPT_6.7", "OPT_13"]
 
+for batch_size in batch_sizes:
+    for model_name in model_names:
+        
+        try: 
+            exec(open(f'../../../results/{model_name}/{batch_size}-lru_NNMemConsumptionLog.py').read())
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-real = total
-motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(411)
-plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-128", " ", markevery=1, legend=True)
-# ax.text(0.5, -0.35, "CUDA Kernel Index", \
-#     horizontalalignment='center', verticalalignment='center', \
-#     transform=ax.transAxes)
-# ax.xaxis.labelpad=30
+            title = f"{model_name}_bs{batch_size}_mem_consumption"
+            Figure = plt.figure(figsize=(8, 10))
+            PDF = PdfPages("output/" + title + ".pdf")
 
+        
+            live = active
+            real = total
+            motiv1 = {"all" : real, "active" : live}
+            ax = Figure.add_subplot(211)
+            plot_timeline(ax, motiv1, "mem_consumption_opt", f"CUDA Kernel Index\n{model_name} BS{batch_size}", " ", markevery=1, legend=True)
 
-exec(open('../../../results/VIT/512-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-real = total
-motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(412)
-plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512", " ", markevery=1)
-# ax.text(0.5, -0.35, "CUDA Kernel Index", \
-#     horizontalalignment='center', verticalalignment='center', \
-#     transform=ax.transAxes)
-# ax.xaxis.labelpad=30
+            Figure.text(-0.15, 0.5, "Memory Consumption", rotation=90, \
+                horizontalalignment='center', verticalalignment='center', \
+                transform=ax.transAxes)
 
+            Figure.tight_layout(pad=1.)
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-real = total
-motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(413)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResNet152-512", " ", markevery=1)
-# ax.text(0.5, -0.35, "CUDA Kernel Index", \
-#     horizontalalignment='center', verticalalignment='center', \
-#     transform=ax.transAxes)
-# ax.xaxis.labelpad=30
+            PDF.savefig(Figure, bbox_inches='tight')
+            PDF.close()
 
-
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-real = total
-motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(414)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Inceptionv3-512", " ", markevery=1)
-# ax.text(0.5, -0.35, "CUDA Kernel Index", \
-#     horizontalalignment='center', verticalalignment='center', \
-#     transform=ax.transAxes)
-# ax.xaxis.labelpad=30
-
-
-
-Figure.text(-0.15, 3.2, "Memory Consumption", rotation=90, \
-    horizontalalignment='center', verticalalignment='center', \
-    transform=ax.transAxes)
-
-Figure.tight_layout(pad=1.)
-
-PDF.savefig(Figure, bbox_inches='tight')
-PDF.close()
+        except:
+            print(f"{model_name} batch {batch_size} not found.")

@@ -6,16 +6,22 @@ import ujson as json
 import sys
 import re
 
+BATCH_CODE = 99
+SEQ_LEN_CODE = 66
+SINGLE_IPU = False
+
 SHOULD_IGNORE_OP_TYPE = {
     # ignore these op types
     "Result": True,
-    "Slice": True,
     "Reshape": True,
-    "Broadcast": True,
-    "Concat": True,
     "Convert": True,
 
-    # do not ignore these op types
+    "Broadcast": True,
+    "Concat": True,
+
+    # do not ignore these op types    
+    "Slice": True,
+
     "Dot": False,
     "Relu": False,
     "Add": False,
@@ -32,6 +38,7 @@ SHOULD_IGNORE_OP_TYPE = {
     "Convolution": False,
     "MaxPool": False,
     "Erf": False,
+    "Maximum": False,
 }
 
 OP_TYPE_ELEM_ONE_INPUT = {
@@ -47,6 +54,7 @@ OP_TYPE_ELEM_TWO_INPUTS = {
     "Multiply",
     "Power",
     "Subtract",
+    "Maximum",
 }
 
 OP_TYPE_REDUCE = {
@@ -64,6 +72,9 @@ OP_TYPE_ID_POOL = 3
 OP_TYPE_ID_CONV = 4
 OP_TYPE_ID_MATMUL = 5
 OP_TYPE_ID_GATHER = 6
+OP_TYPE_ID_BROADCAST = 7
+OP_TYPE_ID_SLICE = 8
+OP_TYPE_ID_CONCAT = 9
 
 OP_TYPE_TO_TYPE_ID = {
     "Dot":          OP_TYPE_ID_MATMUL,
@@ -82,7 +93,14 @@ OP_TYPE_TO_TYPE_ID = {
     "Convolution":  OP_TYPE_ID_CONV,
     "MaxPool":      OP_TYPE_ID_POOL,
     "Erf":          OP_TYPE_ID_RELU,
+    "Broadcast":    OP_TYPE_ID_BROADCAST,
+    "Slice":        OP_TYPE_ID_SLICE,
+    "Concat":       OP_TYPE_ID_CONCAT,
+    "Maximum":      OP_TYPE_ID_ELEMENT,
 }
+
+broadcast_dict: Dict[int, np.ndarray] = {}   # key: op_id, value: list of broadcasted dims
+parameter_list: List[int] = []
 
 class Operator:
     def __init__(self,
@@ -106,7 +124,7 @@ class Operator:
         self.users: List[int] = []
         '''ids of operators that use this operator's output'''
 
-        self.should_count_inputs: List[bool] = [True for i in self.inputs]
+        self.should_ignore_inputs: List[bool] = [False for i in self.inputs]
 
     def parse_ins_str(self):
         se = re.search("output.*\",\sinput_dict", self.ins_str)
@@ -132,7 +150,7 @@ class Operator:
             self.op_expression,
             self.input_dict,
             self.inputs,
-            self.should_count_inputs,
+            self.should_ignore_inputs,
         ]
     
     @staticmethod
@@ -143,7 +161,7 @@ class Operator:
         op.op_expression = l[2]
         op.input_dict = l[3]
         op.inputs = l[4]
-        op.should_count_inputs = l[5]
+        op.should_ignore_inputs = l[5]
         return op
 
 
@@ -155,13 +173,23 @@ def parse_model(model_filename: str) -> List[Operator]:
     for op in model:
         if op[2] == "Result":
             continue
+        if op[2] == "Constant":
+            continue
+        if op[2] == "Parameter":
+            parameter_list.append(op[0])
+            continue
+        if op[2] == "Maximum":
+            op[2] = "Add"
         operators.append(Operator(op[0], op[1], op[2], op[3]))
 
     return operators
 
 def get_dim_names_from_expr(op_expr: str, var_name: str) -> List[str]:
     # find "var_name[...] [=+-*/;]"
-    se = re.search(f"{var_name}\[[BNMGSCKHOW\d,\s]*\]", op_expr)
+    # se = re.search(f"{var_name}\[[BNMGSCKHOWR\d,\s]*\]", op_expr)
+    # se = re.search(f"{var_name}\[[A-Z\d,\s]*\]", op_expr)
+    se = re.search(f"{var_name}\[[A-Z\d(\s(+\-)\s\d+)?,\s]*\]", op_expr)
+    # print(se)
     assert se, f"var_name; {var_name}, op_expr: {op_expr}"
     temp = se.group()
     assert temp.startswith(var_name), f"temp: {temp}"
@@ -177,116 +205,21 @@ def get_dim_names_from_expr(op_expr: str, var_name: str) -> List[str]:
 def get_dims_from_op_elem_two_inputs(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name in OP_TYPE_ELEM_TWO_INPUTS, f"op.name: {op.name}"
     assert len(op.input_dict) == 2, f"op.input_dict: {op.input_dict}"
-
-    op_expr = op.op_expression
-    output_dim_names = get_dim_names_from_expr(op_expr, "output0")
-    input0_dim_names = get_dim_names_from_expr(op_expr, "input0")
-    input1_dim_names = get_dim_names_from_expr(op_expr, "input1")
-
-    assert output_dim_names == input0_dim_names == input1_dim_names, \
-        f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}, \n\tinput1_dim_names: {input1_dim_names}"
-
-    dim_lengths: List[int] = op.input_dict["input0"]["shape"]
-    variables: List[List[List[int]]] = [
-        [[i] for i in range(len(dim_lengths))],
-        [[i] for i in range(len(dim_lengths))],
-        [[i] for i in range(len(dim_lengths))],
-    ]
-
-    return dim_lengths, variables
+    return get_dims_from_op_GatherV2(op)
 
 def get_dims_from_op_elem_one_input(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name in OP_TYPE_ELEM_ONE_INPUT, f"op.name: {op.name}"
     assert len(op.input_dict) == 1, f"op.input_dict: {op.input_dict}"
-
-    op_expr = op.op_expression
-    output_dim_names = get_dim_names_from_expr(op_expr, "output0")
-    input0_dim_names = get_dim_names_from_expr(op_expr, "input0")
-
-    assert output_dim_names == input0_dim_names, \
-        f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}"
-
-    dim_lengths: List[int] = op.input_dict["input0"]["shape"]
-    variables: List[List[List[int]]] = [
-        [[i] for i in range(len(dim_lengths))],
-        [[i] for i in range(len(dim_lengths))],
-    ]
-
-    return dim_lengths, variables
+    return get_dims_from_op_GatherV2(op)
 
 def get_dims_from_op_Dot(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name == "Dot", f"op.name: {op.name}"
     assert len(op.input_dict) == 2, f"op.input_dict: {op.input_dict}"
-
-    op_expr = op.op_expression
-    output_dim_names = get_dim_names_from_expr(op_expr, "output0")
-    input0_dim_names = get_dim_names_from_expr(op_expr, "input0")
-    input1_dim_names = get_dim_names_from_expr(op_expr, "input1")
-
-    batch_dim_size = 1
-    N = op.input_dict["input0"]["shape"][0]
-    K = op.input_dict["input0"]["shape"][1]
-    M = op.input_dict["input1"]["shape"][1]
-
-    if len(output_dim_names) > 2:
-        assert output_dim_names[0] == input0_dim_names[0] == "S0", \
-            f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}, \n\tinput1_dim_names: {input1_dim_names}"
-        batch_dim_size = op.input_dict["input0"]["shape"][0]
-        output_dim_names = output_dim_names[1:]
-        input0_dim_names = input0_dim_names[1:]
-        N = op.input_dict["input0"]["shape"][1]
-        K = op.input_dict["input0"]["shape"][2]
-
-    transpose_input1 = output_dim_names[1] == input1_dim_names[0]
-
-    # assert output_dim_names[0] == input0_dim_names[0] == "N" \
-    #     and output_dim_names[1] == input1_dim_names[0] == "M" \
-    #     and input0_dim_names[1] == input1_dim_names[0] == "K", \
-    #     f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}, \n\tinput1_dim_names: {input1_dim_names}"
-
-    dim_lengths: List[int] = [
-        batch_dim_size * N, # S0*N
-        K, # K
-        M, # M
-    ]
-
-    variables: List[List[List[int]]] = [
-        [[0], [2]],
-        [[0], [1]],
-        [[2], [1]] if transpose_input1 else [[1], [2]],
-    ]
-
-    return dim_lengths, variables
+    return get_dims_from_op_GatherV2(op)
 
 def get_dims_from_op_BatchMatMul(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name == "BatchMatMul", f"op.name: {op.name}"
-
-    op_expr = op.op_expression
-    output_dim_names = get_dim_names_from_expr(op_expr, "output0")
-    input0_dim_names = get_dim_names_from_expr(op_expr, "input0")
-    input1_dim_names = get_dim_names_from_expr(op_expr, "input1")
-    assert output_dim_names[:2] == input0_dim_names[:2] == input1_dim_names[:2], \
-        f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}, \n\tinput1_dim_names: {input1_dim_names}"
-
-    assert output_dim_names[2] == input0_dim_names[2] == "N" \
-        and output_dim_names[3] == input1_dim_names[3] == "M" \
-        and input0_dim_names[3] == input1_dim_names[2] == "K", \
-        f"\n\toutput_dim_names: {output_dim_names}, \n\tinput0_dim_names: {input0_dim_names}, \n\tinput1_dim_names: {input1_dim_names}"
-
-    b0 = op.input_dict["input0"]["shape"][0]
-    b1 = op.input_dict["input0"]["shape"][1]
-    n = op.input_dict["input0"]["shape"][2]
-    k = op.input_dict["input0"]["shape"][3]
-    m = op.input_dict["input1"]["shape"][3]
-
-    dim_lengths: List[int] = [b0, b1, n, k, m]
-    variables: List[List[List[int]]] = [
-        [[0], [1], [2], [4]],
-        [[0], [1], [2], [3]],
-        [[0], [1], [3], [4]],
-    ]
-
-    return dim_lengths, variables
+    return get_dims_from_op_GatherV2(op)
 
 def get_dims_from_op_Convolution(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name == "Convolution", f"op.name: {op.name}"
@@ -364,22 +297,7 @@ def get_dims_from_op_MaxPool(op: Operator) -> Tuple[List[int], List[List[List[in
 
 def get_dims_from_op_Reduce(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name in OP_TYPE_REDUCE, f"op.name: {op.name}"
-
-    op_expr = op.op_expression
-
-    output_dim_names = get_dim_names_from_expr(op_expr, "output0")
-    input_dim_names = get_dim_names_from_expr(op_expr, "input0")
-
-    assert len(output_dim_names) <= len(input_dim_names), \
-        f"output_dim_names: {output_dim_names}, input_dim_names: {input_dim_names}"
-
-    dim_lengths: List[int] = op.input_dict["input0"]["shape"]
-    variables: List[List[List[int]]] = [
-        [[i] for i in sorted([int(s[1]) for s in output_dim_names])],
-        [[i] for i in sorted([int(s[1]) for s in input_dim_names])],
-    ]
-
-    return dim_lengths, variables
+    return get_dims_from_op_GatherV2(op)
 
 def get_dims_from_op_SoftmaxBasic(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
     assert op.name == "SoftmaxBasic", f"op.name: {op.name}"
@@ -392,11 +310,16 @@ def get_dims_from_op_GatherV2(op: Operator) -> Tuple[List[int], List[List[List[i
     output_dim_names = get_dim_names_from_expr(op_expr, "output0")
     input0_dim_names = get_dim_names_from_expr(op_expr, "input0")
     input1_dim_names = []
-    if len(op.input_dict) == 2:
+    input2_dim_names = []
+    if len(op.input_dict) >= 2:
         input1_dim_names = get_dim_names_from_expr(op_expr, "input1")
+    if len(op.input_dict) >= 3:
+        input2_dim_names = get_dim_names_from_expr(op_expr, "input2")
 
     variables = [[],[]]
-    if len(op.input_dict) == 2:
+    if len(op.input_dict) >= 2:
+        variables.append([])
+    if len(op.input_dict) >= 3:
         variables.append([])
     name_idx_dict = {}
     cur_idx = 0
@@ -404,8 +327,18 @@ def get_dims_from_op_GatherV2(op: Operator) -> Tuple[List[int], List[List[List[i
         variables[0].append([cur_idx])
         name_idx_dict[out_name] = cur_idx
         cur_idx += 1
+        # order of output_dim_names cannot be changed!
+
+    if len(op.input_dict) >= 3:
+        for in2_name in input2_dim_names:
+            if in2_name not in name_idx_dict:
+                variables[3].append([cur_idx])
+                name_idx_dict[in2_name] = cur_idx
+                cur_idx += 1
+            else:
+                variables[3].append([name_idx_dict[in2_name]])
     
-    if len(op.input_dict) == 2:
+    if len(op.input_dict) >= 2:
         for in1_name in input1_dim_names:
             if in1_name not in name_idx_dict:
                 variables[2].append([cur_idx])
@@ -423,12 +356,36 @@ def get_dims_from_op_GatherV2(op: Operator) -> Tuple[List[int], List[List[List[i
             variables[1].append([name_idx_dict[in0_name]])
 
     dim_lengths = [0] * cur_idx
-    if len(op.input_dict) == 2:
+
+    if len(op.input_dict) >= 3:
+        for name, length in zip(input2_dim_names, op.input_dict["input2"]["shape"]):
+            dim_lengths[name_idx_dict[name]] = length
+    if len(op.input_dict) >= 2:
         for name, length in zip(input1_dim_names, op.input_dict["input1"]["shape"]):
             dim_lengths[name_idx_dict[name]] = length
     for name, length in zip(input0_dim_names, op.input_dict["input0"]["shape"]):
         dim_lengths[name_idx_dict[name]] = length
+    return dim_lengths, variables
 
+# PLACE HOLDER
+def get_dims_from_op_Broadcast(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
+    return get_dims_from_op_GatherV2(op)
+
+# PLACE HOLDER
+def get_dims_from_op_Slice(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
+    dim_lengths, variables = get_dims_from_op_GatherV2(op)
+    idx = np.array(dim_lengths) > 0
+    dim_lengths = np.array(dim_lengths)[idx].tolist()
+    for var in variables:
+        for dim in var:
+            if dim[0] >= np.count_nonzero(idx==True):
+                dim[0] -= np.count_nonzero(idx==False)
+    return dim_lengths, variables
+
+def get_dims_from_op_Concat(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
+    dim_lengths, variables = get_dims_from_op_GatherV2(op)
+    idx = list.index(dim_lengths, 0)
+    dim_lengths[idx] = sum(dim_lengths[len(variables[0]):])
     return dim_lengths, variables
 
 def get_dims_from_op(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
@@ -457,10 +414,16 @@ def get_dims_from_op(op: Operator) -> Tuple[List[int], List[List[List[int]]]]:
         return get_dims_from_op_SoftmaxBasic(op)
     elif op.name == "GatherV2":
         return get_dims_from_op_GatherV2(op)
+    elif op.name == "Broadcast":
+        return get_dims_from_op_Broadcast(op)
+    elif op.name == "Slice":
+        return get_dims_from_op_Slice(op)
+    elif op.name == "Concat":
+        return get_dims_from_op_Concat(op)
     else:
         raise ValueError(f"op.name: {op.name}")
 
-def get_tensor_expr_info_from_op(op: Operator) -> Tuple[str, List[int], List[List[List[int]]], List[bool], int]:
+def get_tensor_expr_info_from_op(op: Operator) -> Tuple[str, List[int], List[List[List[int]]], List[bool], int, int, List[int]]:
     '''
     @returns a tuple of:
         op_type_name: str,
@@ -471,101 +434,188 @@ def get_tensor_expr_info_from_op(op: Operator) -> Tuple[str, List[int], List[Lis
     '''
     op_type_name = op.name
     assert not SHOULD_IGNORE_OP_TYPE[op_type_name], f"op_type_name: {op_type_name}"
-
     dim_lengths, variables = get_dims_from_op(op)
+    ignore_variables: List[bool] = op.should_ignore_inputs
+    op_id = op.id
+    op_inputs = op.inputs
 
-    ignore_variables: List[bool] = [not x for x in op.should_count_inputs]
+    for id, input in enumerate(op.inputs):
+        var_id = id+1
+        assert len(variables) > var_id, \
+            f"op_type_name: {op_type_name} op.id: {op.id} \
+                op.inputs: {op.inputs} variables: {variables}"
+        if input in broadcast_dict:
+            if broadcast_dict[input][0] < len(variables[var_id]):
+                variables[var_id] = np.array(variables[var_id])[broadcast_dict[input]].tolist()
+            else:
+                # dim_lengths.append(1)
+                # variables[var_id] = [[len(dim_lengths)-1]]
+                del variables[var_id]
+                del ignore_variables[id]
+                del op_inputs[id]
 
-    return op_type_name, dim_lengths, variables, ignore_variables, OP_TYPE_TO_TYPE_ID[op_type_name]
+    return op_type_name, dim_lengths, variables, ignore_variables, OP_TYPE_TO_TYPE_ID[op_type_name], op_id, op_inputs
 
 def load_ops_from_file(fname: str) -> List[Operator]:
     with open(fname, "r") as f:
         ops = json.load(f)
     return [Operator.from_list(op) for op in ops]
 
-model_filename = sys.argv[1]
-output_filename = f"parsed/parsed_{model_filename}"
-texpre_filename = f"TExpr_{model_filename}"
-
-
-if len(sys.argv) > 2:
-    read_from_parsed_file = sys.argv[2] == "--parsed"
-else:
-    read_from_parsed_file = False
-
-if read_from_parsed_file:
-    with open(output_filename, 'r') as f:
-        ops = load_ops_from_file(output_filename)
 ###########################################################
-else:
-    ops = parse_model(f"original/{model_filename}")
+model_filename = sys.argv[1]
+seq_len = 0
+if len(sys.argv) > 2:
+    seq_len = int(sys.argv[2])
+output_filename = f"parsed/parsed_{model_filename}"
+texpre_filename = f"TExpr/TExpr_{model_filename}"
 
-    ops_id_dict: Dict[int, Operator] = {op.id: op for op in ops}
-
-    # find users of all ops
-    for op in ops:
-        for input_id in op.inputs:
-            if input_id in ops_id_dict:
-                ops_id_dict[input_id].users.append(op.id)
-
-    # remove all ops that should be ignored
-    # propagate their input_ids and uses to the remaining ops
-    for op in ops:
-        if not SHOULD_IGNORE_OP_TYPE[op.name]:
-            continue
-
-        # op.inputs should be added to op.users[x].inputs
+ops = parse_model(f"original/{model_filename}")
+ops_id_dict: Dict[int, Operator] = {op.id: op for op in ops}
+# find users of all ops
+for op in ops:
+    for input_id in op.inputs:
+        if input_id in ops_id_dict:
+            ops_id_dict[input_id].users.append(op.id)
+# remove all ops that should be ignored
+# propagate their input_ids and uses to the remaining ops
+for op in ops:
+    if not SHOULD_IGNORE_OP_TYPE[op.name]:
+        continue
+    # initialize broadcast_dict
+    if op.name == "Broadcast":
+        if op.inputs[0] not in broadcast_dict:
+            dim_lengths, variables = get_dims_from_op(op)
+            broadcast_dict[op.inputs[0]] = np.array(variables[1]).flatten()
+    if op.name != "Concat":
+    # op.inputs should be added to op.users[x].inputs
         for user_id in op.users:
             if user_id in ops_id_dict:
                 user = ops_id_dict[user_id]
+                cur_id = user.inputs.index(op.id)
                 for input_id in op.inputs:
-                    user.inputs.append(input_id)
-
-        # op.users should be added to op.inputs[x].users
-        for input_id in op.inputs:
-            if input_id in ops_id_dict:
-                input_op = ops_id_dict[input_id]
-                for user_id in op.users:
-                    input_op.users.append(user_id)
-
-        # op.id should be removed from op.inputs[x].users and op.users[x].inputs
-        for input_id in op.inputs:
-            if input_id in ops_id_dict:
-                input_op = ops_id_dict[input_id]
-                assert op.id in input_op.users
-                input_op.users.remove(op.id)
+                    cur_id += 1
+                    user.inputs.insert(cur_id, input_id)
+    # op.users should be added to op.inputs[x].users
+    for input_id in op.inputs:
+        if input_id in ops_id_dict:
+            input_op = ops_id_dict[input_id]
+            cur_id = input_op.users.index(op.id)
+            for user_id in op.users:
+                cur_id += 1
+                input_op.users.insert(cur_id, user_id)
+    # op.id should be removed from op.inputs[x].users and op.users[x].inputs
+    for input_id in op.inputs:
+        if input_id in ops_id_dict:
+            input_op = ops_id_dict[input_id]
+            assert op.id in input_op.users
+            input_op.users.remove(op.id)
+    if op.name != "Concat":
         for user_id in op.users:
             if user_id in ops_id_dict:
                 user = ops_id_dict[user_id]
                 assert op.id in user.inputs
                 user.inputs.remove(op.id)
+    # remove this op from ops_id_dict
+    del ops_id_dict[op.id]
+###########################################################
 
-        # remove this op from ops_id_dict
-        del ops_id_dict[op.id]
+####################################################################################
+# remove deleted ops from ops
+ops = [op for op in ops if op.id in ops_id_dict]
+first_producer_dict: Dict[tuple, int] = {} # op_expr -> first producer op_id
+last_user_dict: Dict[tuple, int] = {} # op_expr -> last user op_id
+# to reuse the forfeited cold storage
+explored_ops = [op.id for op in ops]
+tensor_renaming_dict: Dict[int, int] = {} # old_id -> new_id
+# for i in range(len(ops)-1):
+    
+#     next_op = ops[i+1]
+#     assert len(next_op.inputs) == len(next_op.should_ignore_inputs), \
+#         f"next_op: {next_op.dump_as_list()}"
+    
+#     cur_op = ops[i]
+    
+#     for idx, input_id in enumerate(cur_op.inputs):
+#         if not cur_op.should_ignore_inputs[idx]:
+#             not_reused = True
 
-    # remove deleted ops from ops
-    ops = [op for op in ops if op.id in ops_id_dict]
+#             if input_id in ops_id_dict:
+#                 last_user = ops_id_dict[input_id].users[0]
+#                 for user in ops_id_dict[input_id].users:
+#                     if explored_ops.index(user) > explored_ops.index(last_user):
+#                         last_user = user
+#                 len_last_user_expr = len(ops_id_dict[last_user].op_expression)
+#                 input_expr = (ops_id_dict[input_id].ins_str, len_last_user_expr)
 
-    for i in range(len(ops)-1):
-        cur_op = ops[i]
-        next_op = ops[i+1]
-        if cur_op.id in next_op.inputs:
-            if len(next_op.inputs) > len(next_op.should_count_inputs):
-                pass # count all inputs for simplicity
-            else:
-                next_op.should_count_inputs[next_op.inputs.index(cur_op.id)] = False
+#             else:
+#                 input_expr = None
+#                 last_user = -1
+
+#             if input_expr in last_user_dict:
+#                 if explored_ops.index(last_user_dict[input_expr]) < \
+#                     explored_ops.index(input_id):
+                    
+#                     # cold store slot forfeited, can be reused
+#                     not_reused = False
+#                     tensor_renaming_dict[input_id] = first_producer_dict[input_expr]
+#                     last_user_dict[input_expr] = last_user
+#             if not_reused:
+#                 if input_expr:
+#                     first_producer_dict[input_expr] = input_id
+#                     last_user_dict[input_expr] = last_user
+    
+#     for idx, input_id in enumerate(next_op.inputs):
+#         if input_id == cur_op.id:
+#             next_op.should_ignore_inputs[idx] = True
+#         if input_id in cur_op.inputs:
+#             next_op.should_ignore_inputs[idx] = True
+####################################################################################
+
+ops = [op for op in ops if op.name!="Concat"]
+for op in ops:
+    if op.id in tensor_renaming_dict:
+        op.id = tensor_renaming_dict[op.id]
+    for idx, input_id in enumerate(op.inputs):
+        if input_id in tensor_renaming_dict:
+            op.inputs[idx] = tensor_renaming_dict[input_id]
+    op.users = []
+
+if SINGLE_IPU:
+    print("Assuming SINGLE_IPU!")
+    stored_inputs = []
+    for op in ops:
+        for idx, input_id in enumerate(op.inputs):
+            if not op.should_ignore_inputs[idx]:
+                if input_id not in stored_inputs:
+                    stored_inputs.append(input_id)
+                else:
+                    op.should_ignore_inputs[idx] = True
+
+# parameter_list.sort()
+# print(len(parameter_list))
+# for p in parameter_list:
+#     print(p)
+
+print(max(parameter_list))
 
 for op in ops:
     print(op.id)
     print(op.name)
     #print(op.op_expression)
     print(op.input_dict.__len__())
-    for num in op.inputs:
+    for idx, num in enumerate(op.inputs):
+        if op.name == "GatherV2" and idx == 1:
+            num += 666666
         print(num)
     for i in range(op.input_dict.__len__()):
         string1 = "input" + str(i)
         print(op.input_dict[string1]["shape"].__len__())
         for dim in op.input_dict[string1]["shape"]:
+            if seq_len > 0:
+                if dim == SEQ_LEN_CODE:
+                    dim = seq_len
+                if dim == BATCH_CODE*SEQ_LEN_CODE:
+                    dim = BATCH_CODE*seq_len
             print(dim)
     print("-------------------")
 

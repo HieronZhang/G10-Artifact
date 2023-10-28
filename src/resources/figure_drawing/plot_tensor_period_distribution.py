@@ -5,9 +5,6 @@ from matplotlib.ticker import LogLocator
 from fig_common import *
 
 
-Figure = plt.figure( figsize=(8, 8) )
-PDF = PdfPages( "output/tensor_periods_distribution.pdf" )
-
 
 
 def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: bool = True, log_x: bool = True, log_y: bool = True, y_lim: Tuple[float, float] = None, plot_line_slope: float = 1717.986918):
@@ -46,44 +43,37 @@ def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: b
     if y_lim:
         ax.set_ylim(y_lim[0] or ax.get_ylim()[0], y_lim[1] or ax.get_ylim()[1])
     
-    ax.set_xlim(ax.get_xlim())
+    # ax.set_xlim(ax.get_xlim())
+    ax.set_xlim(1, 1e10)
+    ax.set_ylim(1e3, 1e10)
+
+    # CHANGE HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
+batch_sizes = [4, 8, 16, 32, 64, 128, 256]
+model_names = ["OPT_1.3", "OPT_2.7", "OPT_6.7", "OPT_13"]
 
-    
-exec(open('../../../results/BERT_Base/128-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(221)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-ax.text(0.45, -0.34, "(a) BERT-128", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 1e7)
+for batch_size in batch_sizes:
+    for model_name in model_names:
 
-exec(open('../../../results/VIT/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(222)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e8))
-ax.text(0.45, -0.34, "(b) ViT-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 4e6)
+        try:
+            exec(open(f'../../../results/{model_name}/{batch_size}-lru_TensorPeriodLog.py').read())
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(223)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e9))
-ax.text(0.45, -0.34, "(c) ResNet152-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 2e8)
+            Figure = plt.figure( figsize=(8, 8) )
+            PDF = PdfPages( f"output/{model_name}_bs{batch_size}_tensor_periods_distribution.pdf" )
+        
+            
+            ax = Figure.add_subplot(221)
+            plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"])
+            ax.text(0.45, -0.34, f"{model_name} BS{batch_size}", \
+            horizontalalignment='center', verticalalignment='center', \
+            transform=ax.transAxes)
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(224)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e9))
-ax.text(0.45, -0.34, "(d) Inceptionv3-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 1e8)
+            Figure.tight_layout(pad=0.8)
 
-Figure.tight_layout(pad=0.8)
+            PDF.savefig(Figure, bbox_inches='tight')
+            PDF.close()
+            plt.close(Figure)
 
-PDF.savefig(Figure, bbox_inches='tight')
-PDF.close()
+        except:
+            print(f"{model_name} batch {batch_size} not found.")

@@ -31,6 +31,21 @@
 
 // #define DEBUG_PRINT
 
+
+#ifndef NDEBUG
+#   define ASSERT(condition, message) \
+    do { \
+        if (! (condition)) { \
+            std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
+                      << " line " << __LINE__ << ": " << message << std::endl; \
+            std::terminate(); \
+        } \
+    } while (false)
+#else
+#   define ASSERT(condition, message) do { } while (false)
+#endif
+
+
 int iterations;
 int mean_iterations;
 
@@ -506,7 +521,7 @@ float direct_run(cudnnHandle_t& cudnn, string algo, vector<double> &args, bool i
     else if (algo == "Apply_Grad")              result = run_Apply_Grad(cudnn, args, is_UVM);
 
     else {
-        assert(false);
+        ASSERT(false, algo);
     }
     return result;
 }
@@ -562,7 +577,32 @@ void grouped_run(cudnnHandle_t& cudnn, string input_filename, bool is_UVM) {
         else if (algo == "Concat_Backward")             p = new Concat_Backward(cudnn, args, is_UVM);
         else if (algo == "Scale_Forward")               p = new Scale_Forward(cudnn, args, is_UVM);
         else if (algo == "Scale_Backward")              p = new Scale_Backward(cudnn, args, is_UVM);
-        else                                            assert(false);
+        else if (algo == "GatherV2_Forward")            p = new GatherV2_Forward   (cudnn, args, is_UVM);  
+        else if (algo == "GatherV2_Backward")           p = new GatherV2_Backward  (cudnn, args, is_UVM); 
+        else if (algo == "Add_Backward")                p = new Add_Backward       (cudnn, args, is_UVM); 
+        else if (algo == "Divide_Forward")              p = new Divide_Forward     (cudnn, args, is_UVM); 
+        else if (algo == "Divide_Backward_A")           p = new Divide_Backward_A  (cudnn, args, is_UVM); 
+        else if (algo == "Divide_Backward_B")           p = new Divide_Backward_B  (cudnn, args, is_UVM); 
+        else if (algo == "Multiply_Forward")            p = new Multiply           (cudnn, args, is_UVM); 
+        else if (algo == "Multiply_Backward")           p = new Divide_Forward     (cudnn, args, is_UVM); 
+        else if (algo == "Power_Forward")               p = new Power_Forward      (cudnn, args, is_UVM); 
+        else if (algo == "Power_Backward")              p = new Power_Backward     (cudnn, args, is_UVM); 
+        else if (algo == "Sqrt_Forward")                p = new Sqrt_Forward       (cudnn, args, is_UVM); 
+        else if (algo == "Sqrt_Backward")               p = new Sqrt_Backward      (cudnn, args, is_UVM); 
+        else if (algo == "SoftmaxBasic_Forward")        p = new Softmax_Forward    (cudnn, args, is_UVM); 
+        else if (algo == "SoftmaxBasic_Backward")       p = new Softmax_Backward   (cudnn, args, is_UVM); 
+        else if (algo == "Sum_Forward")                 p = new Sum_Forward        (cudnn, args, is_UVM); 
+        else if (algo == "Sum_Backward")                p = new Sum_Backward       (cudnn, args, is_UVM); 
+        else if (algo == "Tanh_Forward")                p = new Tanh_Forward       (cudnn, args, is_UVM); 
+        else if (algo == "Tanh_Backward")               p = new Tanh_Backward      (cudnn, args, is_UVM); 
+        else if (algo == "Erf_Forward")                 p = new Erf_Forward        (cudnn, args, is_UVM); 
+        else if (algo == "Erf_Backward")                p = new Erf_Backward       (cudnn, args, is_UVM); 
+        else if (algo == "BatchMatMul_Forward")         p = new BatchMatMul_Forward(cudnn, args, is_UVM); 
+        else if (algo == "BatchMatMul_Backward")        p = new BatchMatMul_Forward(cudnn, args, is_UVM); 
+        else if (algo == "Subtract_Forward")            p = new Add                (cudnn, args, is_UVM); 
+        else if (algo == "Subtract_Backward")           p = new Add_Backward       (cudnn, args, is_UVM); 
+        else if (algo == "Apply_Grad")                  p = new ApplyGrad          (cudnn, args, is_UVM); 
+        else                                            ASSERT(false, algo);
         printf("%0*d %f ms\n", total_size, kernel_num++, get_avg(*p));
         delete p;
     }
@@ -626,7 +666,7 @@ size_t direct_get_workspace_size(cudnnHandle_t& cudnn, string algo, vector<doubl
     else if (algo == "Subtract_Backward")           result = Add_Backward(cudnn, args, 1).getWorkspaceSize(); 
     else if (algo == "Apply_Grad")                  result = ApplyGrad(cudnn, args, 1).getWorkspaceSize(); 
     else {
-        assert(false);
+        ASSERT(false, algo);
     }
     return result;
 }
@@ -682,7 +722,32 @@ void grouped_get_workspace_size(cudnnHandle_t& cudnn, string input_filename) {
         else if (algo == "Concat_Backward")             p = new Concat_Backward(cudnn, args, 1);
         else if (algo == "Scale_Forward")               p = new Scale_Forward(cudnn, args, 1);
         else if (algo == "Scale_Backward")              p = new Scale_Backward(cudnn, args, 1);
-        else                                            assert(false);
+        else if (algo == "GatherV2_Forward")            p = new GatherV2_Forward   (cudnn, args, 1);  
+        else if (algo == "GatherV2_Backward")           p = new GatherV2_Backward  (cudnn, args, 1); 
+        else if (algo == "Add_Backward")                p = new Add_Backward       (cudnn, args, 1); 
+        else if (algo == "Divide_Forward")              p = new Divide_Forward     (cudnn, args, 1); 
+        else if (algo == "Divide_Backward_A")           p = new Divide_Backward_A  (cudnn, args, 1); 
+        else if (algo == "Divide_Backward_B")           p = new Divide_Backward_B  (cudnn, args, 1); 
+        else if (algo == "Multiply_Forward")            p = new Multiply           (cudnn, args, 1); 
+        else if (algo == "Multiply_Backward")           p = new Divide_Forward     (cudnn, args, 1); 
+        else if (algo == "Power_Forward")               p = new Power_Forward      (cudnn, args, 1); 
+        else if (algo == "Power_Backward")              p = new Power_Backward     (cudnn, args, 1); 
+        else if (algo == "Sqrt_Forward")                p = new Sqrt_Forward       (cudnn, args, 1); 
+        else if (algo == "Sqrt_Backward")               p = new Sqrt_Backward      (cudnn, args, 1); 
+        else if (algo == "SoftmaxBasic_Forward")        p = new Softmax_Forward    (cudnn, args, 1); 
+        else if (algo == "SoftmaxBasic_Backward")       p = new Softmax_Backward   (cudnn, args, 1); 
+        else if (algo == "Sum_Forward")                 p = new Sum_Forward        (cudnn, args, 1); 
+        else if (algo == "Sum_Backward")                p = new Sum_Backward       (cudnn, args, 1); 
+        else if (algo == "Tanh_Forward")                p = new Tanh_Forward       (cudnn, args, 1); 
+        else if (algo == "Tanh_Backward")               p = new Tanh_Backward      (cudnn, args, 1); 
+        else if (algo == "Erf_Forward")                 p = new Erf_Forward        (cudnn, args, 1); 
+        else if (algo == "Erf_Backward")                p = new Erf_Backward       (cudnn, args, 1); 
+        else if (algo == "BatchMatMul_Forward")         p = new BatchMatMul_Forward(cudnn, args, 1); 
+        else if (algo == "BatchMatMul_Backward")        p = new BatchMatMul_Forward(cudnn, args, 1); 
+        else if (algo == "Subtract_Forward")            p = new Add                (cudnn, args, 1); 
+        else if (algo == "Subtract_Backward")           p = new Add_Backward       (cudnn, args, 1); 
+        else if (algo == "Apply_Grad")                  p = new ApplyGrad          (cudnn, args, 1); 
+        else                                            ASSERT(false, algo);
         printf("%0*d %lu B\n", total_size, kernel_num++, p->getWorkspaceSize());
         delete p;
     }
