@@ -2143,7 +2143,7 @@ static string generate_helper_functions() {
 // metadata to be used in main code generation
 extern int num_iteration;
 int num_threads = 0;
-bool is_individual = 1;
+bool is_individual = 0;
 extern string output_folder_name;
 extern string file_pf_string;
 

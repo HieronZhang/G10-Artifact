@@ -72,7 +72,7 @@ bool is_UVM = true;
 //   In codegen, num_iteration specifies number of iterations to profile
 //   In simulation, num_iteration specifies number of iterations to run
 int num_iteration = -1;
-int is_transformer = -1;
+int is_transformer = 1;
 int borden = 184;
 
 // 
@@ -112,7 +112,7 @@ bool output_override = false;
 bool is_compile = true;
 bool is_run = true;
 int compile_max_thread_num = -1;
-bool is_cudnn = false;
+bool is_cudnn = true;
 
 // random devices
 std::mt19937 rand_device;
@@ -286,11 +286,11 @@ void loadKernelTimes() {
     double GPU_frequency_Hz = GPU_frequency_GHz * pow(10, 9);
     
     std::ifstream orig_f(orig_kernel_time_file);
-    std::ifstream pf_f(pf_kernel_time_file);
-    std::ifstream inputpf_f(input_pf_kernel_time_file);
+    //std::ifstream pf_f(pf_kernel_time_file);
+    //std::ifstream inputpf_f(input_pf_kernel_time_file);
     Assert(orig_f.good());
-    Assert(pf_f.good());
-    Assert(inputpf_f.good());
+    // Assert(pf_f.good());
+    // Assert(inputpf_f.good());
 
     int kernel_num;
     string exe_time_ms_str; 
@@ -299,8 +299,8 @@ void loadKernelTimes() {
     long exe_time_cycle;
     double total_time = 0, pf_total_time = 0, input_pf_total_time = 0;
     unsigned long total_time_cycle = 0, pf_total_time_cycle = 0, input_pf_total_time_cycle = 0;
-    iprintf("Loading kernel times from file <%s> and <%s> and <%s> for %d kernels\n",
-            orig_kernel_time_file.c_str(), pf_kernel_time_file.c_str(), input_pf_kernel_time_file.c_str(), kernel_list.size());
+    iprintf("Loading kernel times from file <%s> for %d kernels\n",
+            orig_kernel_time_file.c_str(), kernel_list.size());
     if (kernel_speedup != 1) {
         iprintf("Using kernel speedup of %.4fx\n", kernel_speedup);
     }
@@ -318,46 +318,46 @@ void loadKernelTimes() {
         Assert(kernel_list[i].execution_cycles > 0);
         total_time += kernel_list[i].execution_cycles / GPU_frequency_Hz * 1000;
         total_time_cycle += exe_time_cycle;
-        // read in input_pf execution time from file
-        exe_time_ms_str.clear();
-        inputpf_f >> kernel_num >> exe_time_ms_str >> unit;
-        Assert(kernel_num == i);
-        Assert(exe_time_ms_str != "");
-        Assert(unit == "ms");
-        exe_time_cycle = std::stod(exe_time_ms_str) * GPU_frequency_Hz / 1000.0;
-        kernel_list[i].input_pf_execution_cycles = exe_time_cycle - delta_execution_time;
-        if (kernel_list[i].input_pf_execution_cycles < kernel_list[i].execution_cycles)
-            kernel_list[i].input_pf_execution_cycles = kernel_list[i].execution_cycles;
-        // read in pf execution time from file
-        exe_time_ms_str.clear();
-        pf_f >> kernel_num >> exe_time_ms_str >> unit;
-        Assert(kernel_num == i);
-        Assert(exe_time_ms_str != "");
-        Assert(unit == "ms");
-        exe_time_cycle = std::stod(exe_time_ms_str) * GPU_frequency_Hz / 1000.0;
-        kernel_list[i].pf_execution_cycles = exe_time_cycle - delta_execution_time;
-        if (kernel_list[i].pf_execution_cycles < kernel_list[i].input_pf_execution_cycles)
-            kernel_list[i].pf_execution_cycles = kernel_list[i].input_pf_execution_cycles;
-        Assert(kernel_list[i].pf_execution_cycles > 0);
-        Assert(exe_time_cycle > 0);
-        pf_total_time += kernel_list[i].pf_execution_cycles / GPU_frequency_Hz * 1000;
-        pf_total_time_cycle += exe_time_cycle;
-        Assert(kernel_list[i].input_pf_execution_cycles > 0);
+        // // read in input_pf execution time from file
+        // exe_time_ms_str.clear();
+        // inputpf_f >> kernel_num >> exe_time_ms_str >> unit;
+        // Assert(kernel_num == i);
+        // Assert(exe_time_ms_str != "");
+        // Assert(unit == "ms");
+        // exe_time_cycle = std::stod(exe_time_ms_str) * GPU_frequency_Hz / 1000.0;
+        // kernel_list[i].input_pf_execution_cycles = exe_time_cycle - delta_execution_time;
+        // if (kernel_list[i].input_pf_execution_cycles < kernel_list[i].execution_cycles)
+        //     kernel_list[i].input_pf_execution_cycles = kernel_list[i].execution_cycles;
+        // // read in pf execution time from file
+        // exe_time_ms_str.clear();
+        // pf_f >> kernel_num >> exe_time_ms_str >> unit;
+        // Assert(kernel_num == i);
+        // Assert(exe_time_ms_str != "");
+        // Assert(unit == "ms");
+        // exe_time_cycle = std::stod(exe_time_ms_str) * GPU_frequency_Hz / 1000.0;
+        // kernel_list[i].pf_execution_cycles = exe_time_cycle - delta_execution_time;
+        // if (kernel_list[i].pf_execution_cycles < kernel_list[i].input_pf_execution_cycles)
+        //     kernel_list[i].pf_execution_cycles = kernel_list[i].input_pf_execution_cycles;
+        // Assert(kernel_list[i].pf_execution_cycles > 0);
+        // Assert(exe_time_cycle > 0);
+        // pf_total_time += kernel_list[i].pf_execution_cycles / GPU_frequency_Hz * 1000;
+        // pf_total_time_cycle += exe_time_cycle;
+        // Assert(kernel_list[i].input_pf_execution_cycles > 0);
     }
-    nprintf("Total time (Ideal): %f ms %lu cycles; (PF): %f ms %lu cycles\n", 
-            total_time, total_time_cycle, pf_total_time, pf_total_time_cycle);
+    nprintf("Total time (Ideal): %f ms %lu cycles\n", 
+            total_time, total_time_cycle);
     // make sure kernel times file have no other entries left
     exe_time_ms_str = "";
     orig_f >> exe_time_ms_str;
     Assert(exe_time_ms_str == "");
     // make sure pf kernel times file have no other entries left
-    exe_time_ms_str = "";
-    pf_f >> exe_time_ms_str;
-    Assert(exe_time_ms_str == "");
-    // make sure inputpf kernel times file have no other entries left
-    exe_time_ms_str = "";
-    inputpf_f >> exe_time_ms_str;
-    Assert(exe_time_ms_str == "");
+    // exe_time_ms_str = "";
+    // pf_f >> exe_time_ms_str;
+    // Assert(exe_time_ms_str == "");
+    // // make sure inputpf kernel times file have no other entries left
+    // exe_time_ms_str = "";
+    // inputpf_f >> exe_time_ms_str;
+    // Assert(exe_time_ms_str == "");
     iprintf("Loading kernel times done\n\n", "");
 }
 
@@ -542,7 +542,7 @@ int main(int argc, char *argv[]) {
 
     // parameter validation
     if (is_simulation) {
-        SimulationParamSanityCheck();
+        //SimulationParamSanityCheck();
     } else {
         if (is_input_pf_only) Assert(is_UVM);
     }
@@ -573,17 +573,17 @@ int main(int argc, char *argv[]) {
     }
     else {
     
-        InitScanner();
-        // yytokentype token;
-        // while ((token = (yytokentype)yylex()) != 0)
-        //     PrintOneToken(token, yytext, yylval, yylloc);
-        InitParser();
+        // InitScanner();
+        // // yytokentype token;
+        // // while ((token = (yytokentype)yylex()) != 0)
+        // //     PrintOneToken(token, yytext, yylval, yylloc);
+        // InitParser();
 
-        yyparse();
+        // yyparse();
 
-        layer_pre_pass_datasize();
+        // layer_pre_pass_datasize();
 
-        layer_first_pass_dataflow();
+        // layer_first_pass_dataflow();
     }
 
 
@@ -611,14 +611,14 @@ int main(int argc, char *argv[]) {
     }
     else
     {
-        // layer info
-        r = new RedirStdOut("layers.config");
-        for (size_t i = 0; i < forward_layers.size(); i++) {
-            forward_layers[i]->print();
-        }
-        delete r;
+        // // layer info
+        // r = new RedirStdOut("layers.config");
+        // for (size_t i = 0; i < forward_layers.size(); i++) {
+        //     forward_layers[i]->print();
+        // }
+        // delete r;
 
-        layer_second_pass_scheduling_kernels();
+        // layer_second_pass_scheduling_kernels();
     }
 
     // for (size_t i = 0; i < kernel_list.size(); i++) {
@@ -694,7 +694,7 @@ int main(int argc, char *argv[]) {
 
 
         // life cycle info
-        r = new RedirStdOut("interval.config");
+        r = new RedirStdOut("liveness_analysis.config");
         for (int i = 0; i < tensor_list.size(); i++) {
             tensor_list[i]->print_liveness();
             tensor_list[i]->print_intervals();
@@ -736,70 +736,70 @@ int main(int argc, char *argv[]) {
 
         
         //Implementation of flashneuron
-        if (migration_policy_str=="FLASHNEURON"|| migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL")
-        {
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                int fail;
-                fail = scheduling_offload_flashneuron();
-                if (fail == 1)
-                {
-                    std::cout<<"@@@ Flashneuron cannot support this large model!"<<std::endl;
-                    return 0;
-                }
-                print_offloading_flashneuron();
-                std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
-            }
-            else
-            {
-                r = new RedirStdOut("pre_dealloc.config");
-                scheduling_prefetch();
-                delete r;
-                // prefetch guide
-                r = new RedirStdOut("prefetch_guide.config");
-                print_prefetch_table();
-                delete r;
-            }
+        // if (migration_policy_str=="FLASHNEURON"|| migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL")
+        // {
+        //     if (migration_policy_str=="FLASHNEURON")
+        //     {
+        //         int fail;
+        //         fail = scheduling_offload_flashneuron();
+        //         if (fail == 1)
+        //         {
+        //             std::cout<<"@@@ Flashneuron cannot support this large model!"<<std::endl;
+        //             return 0;
+        //         }
+        //         print_offloading_flashneuron();
+        //         std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
+        //     }
+        //     else
+        //     {
+        //         r = new RedirStdOut("pre_dealloc.config");
+        //         scheduling_prefetch();
+        //         delete r;
+        //         // prefetch guide
+        //         r = new RedirStdOut("prefetch_guide.config");
+        //         print_prefetch_table();
+        //         delete r;
+        //     }
             
 
-            GDS_Baseline_Type sim_type;
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                sim_type = GDS_Baseline_Type::FlashNeuron;
-            }
-            else if (migration_policy_str=="G10GDSSSD")
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_SSD;
-            }
-            else
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_FULL;
-            }
+        //     GDS_Baseline_Type sim_type;
+        //     if (migration_policy_str=="FLASHNEURON")
+        //     {
+        //         sim_type = GDS_Baseline_Type::FlashNeuron;
+        //     }
+        //     else if (migration_policy_str=="G10GDSSSD")
+        //     {
+        //         sim_type = GDS_Baseline_Type::G10_GDS_SSD;
+        //     }
+        //     else
+        //     {
+        //         sim_type = GDS_Baseline_Type::G10_GDS_FULL;
+        //     }
         
-            FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
-            sim.run();
-            double time_ = sim.total_sim_time;
-            std::string info_file = output_folder_name + "/sim_result.final";
-            std::ofstream foout(info_file);
-            foout<<"total_exe_time = "<<time_<<std::endl; 
-            foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
-            foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
-            foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
-            foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
-            foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
-            std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
-            std::ofstream fooout(info_file2);
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
-                {
-                    fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
-                }
-            }
+        //     FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
+        //     sim.run();
+        //     double time_ = sim.total_sim_time;
+        //     std::string info_file = output_folder_name + "/sim_result.final";
+        //     std::ofstream foout(info_file);
+        //     foout<<"total_exe_time = "<<time_<<std::endl; 
+        //     foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
+        //     foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
+        //     foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
+        //     foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
+        //     foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
+        //     std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
+        //     std::ofstream fooout(info_file2);
+        //     if (migration_policy_str=="FLASHNEURON")
+        //     {
+        //         for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
+        //         {
+        //             fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
+        //         }
+        //     }
             
             
-            return 0;
-        }
+        //     return 0;
+        // }
 
         // eviction guide
         // r = new RedirStdOut("evc_guide.config");
@@ -949,46 +949,47 @@ int main(int argc, char *argv[]) {
         /***********************************Getting Motivation Number   End***************************************/
 
 
-        nprintf("Average interval time: %f ms\n\n", 
-                interval_list[(interval_list.size() - 1) / 2]->time_estimated);
+        // nprintf("Average interval time: %f ms\n\n", 
+        //         interval_list[(interval_list.size() - 1) / 2]->time_estimated);
         
-        iprintf("Checking output stat files\n", "");
-        Simulator::Stat stat(stat_output_file);
-        if (!stat.outputFileExists()) {
-            if (kernel_time_std_dev != 0) {
-                printf("Kernel time variation with std %f\n", kernel_time_std_dev);
-                std::uniform_real_distribution<double> distribution(1 - kernel_time_std_dev, 1 + kernel_time_std_dev);
-                if (ran_seed != 1)
-                {
-                    rand_device.seed((unsigned int)(ran_seed));
-                }
-                // rand_device.seed((unsigned int)(100*kernel_time_std_dev));
-                for (int i = 0; i < kernel_list.size(); i++) {
-                    double ratio = distribution(rand_device);
-                    if (ratio < 0.1) ratio = 0.1; // prevent normal distribution to produce a negative number
-                    if (ratio > 1.9) ratio = 1.9; // ensure that the mean is still around 1.0
-                    kernel_list[i].execution_cycles *= ratio;
-                    kernel_list[i].input_pf_execution_cycles *= ratio;
-                    kernel_list[i].pf_execution_cycles *= ratio;
-                    Assert(kernel_list[i].execution_cycles > 0);
-                    Assert(kernel_list[i].input_pf_execution_cycles > 0);
-                    Assert(kernel_list[i].pf_execution_cycles > 0);
-                }
-            }
-            iprintf("\nSimulation\n", "");
-            Simulator::EventSimulator *sim = new Simulator::EventSimulator(stat_output_file);
-            sim->run(num_iteration);
-            delete sim; // make sure stats are written back to the files
-        }
-        iprintf("\nAnalysis\n", "");
-        stat.prepareOutputFiles(true);
-        stat.analyzeStat();
+        // iprintf("Checking output stat files\n", "");
+        // Simulator::Stat stat(stat_output_file);
+        // if (!stat.outputFileExists()) {
+        //     if (kernel_time_std_dev != 0) {
+        //         printf("Kernel time variation with std %f\n", kernel_time_std_dev);
+        //         std::uniform_real_distribution<double> distribution(1 - kernel_time_std_dev, 1 + kernel_time_std_dev);
+        //         if (ran_seed != 1)
+        //         {
+        //             rand_device.seed((unsigned int)(ran_seed));
+        //         }
+        //         // rand_device.seed((unsigned int)(100*kernel_time_std_dev));
+        //         for (int i = 0; i < kernel_list.size(); i++) {
+        //             double ratio = distribution(rand_device);
+        //             if (ratio < 0.1) ratio = 0.1; // prevent normal distribution to produce a negative number
+        //             if (ratio > 1.9) ratio = 1.9; // ensure that the mean is still around 1.0
+        //             kernel_list[i].execution_cycles *= ratio;
+        //             kernel_list[i].input_pf_execution_cycles *= ratio;
+        //             kernel_list[i].pf_execution_cycles *= ratio;
+        //             Assert(kernel_list[i].execution_cycles > 0);
+        //             Assert(kernel_list[i].input_pf_execution_cycles > 0);
+        //             Assert(kernel_list[i].pf_execution_cycles > 0);
+        //         }
+        //     }
+        //     iprintf("\nSimulation\n", "");
+        //     Simulator::EventSimulator *sim = new Simulator::EventSimulator(stat_output_file);
+        //     sim->run(num_iteration);
+        //     delete sim; // make sure stats are written back to the files
+        // }
+        // iprintf("\nAnalysis\n", "");
+        // stat.prepareOutputFiles(true);
+        // stat.analyzeStat();
 
 
     /**************************************Profiling Kernels***************************************/
 
 
     } else {
+        is_cudnn = true;
         if (is_cudnn) {
             iprintf("Generating main code -- CUDNN mode\n", "");
             auto start_time = high_resolution_clock::now();

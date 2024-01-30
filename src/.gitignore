@@ -3,6 +3,7 @@ __pycache__/
 *.out
 lru
 gpg
+tensor_liveness_analysis
 lex.yy.c
 y.output
 y.tab.c
