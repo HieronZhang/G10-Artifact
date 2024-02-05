@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <stdlib.h>
 #include <math.h>
@@ -49,6 +50,10 @@ std::vector<DataMovementHint> movement_hints;
 std::vector<Offload_Hint_FlashNeuron> offload_hints_fn;
 std::vector<Hidding_Interval*> offloeded_local_intervals;
 
+//For pytorch:
+std::unordered_map<std::string, Aten_tensor*> aten_tensors;
+
+
 //flashneuron:
 std::priority_queue<fl_pending_event, std::vector<fl_pending_event>, Fl_event_less> fl_pending_event_queue;
 
@@ -65,6 +70,646 @@ Model_Layer::Model_Layer(Operatorr* op, int id){
     layer_id = id;
     operatorr = op;
 }
+
+
+bool isSpace(char c) {
+    return std::isspace(static_cast<unsigned char>(c));
+}
+
+
+
+
+// Function to split a string by a delimiter
+std::vector<std::string> split(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+
+//return 0: normal one
+//return 1: multi output
+int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
+
+    
+    //Process OP first
+    std::string function_name;
+    std::string arguments;
+    bool is_squeeze = false;
+    CUDAKernel* this_kernel;
+
+    if (!is_getitem)
+    {
+        size_t openingParenthesisPos = op_str.find('(');
+
+        if (openingParenthesisPos != std::string::npos) {
+            // Extract the function name
+            function_name = op_str.substr(0, openingParenthesisPos);
+
+            // Find the position of the closing parenthesis ')'
+            size_t closingParenthesisPos = op_str.find(')', openingParenthesisPos);
+
+            if (closingParenthesisPos != std::string::npos) {
+                // Extract the formal arguments
+                arguments = op_str.substr(openingParenthesisPos + 1, closingParenthesisPos - openingParenthesisPos - 1);
+
+                std::cout << "Function name: " << function_name << std::endl;
+            } else {
+                std::cerr << "Closing parenthesis ')' not found." << std::endl;
+                exit(1);
+            }
+        } else {
+            std::cerr << "Opening parenthesis '(' not found." << std::endl;
+            exit(1);
+        }
+        
+        // Parse the arguments
+        std::vector<std::string> arguments_list;
+        std::string current_argument;
+        int brackets_count = 0;
+
+        for (char c : arguments) {
+            if (c == '[') {
+                brackets_count++;
+            } else if (c == ']') {
+                brackets_count--;
+            }
+
+            if (c == ',' && brackets_count == 0) {
+                // Push the current argument to the list
+                arguments_list.push_back(current_argument);
+                current_argument.clear();
+            } else {
+                current_argument += c;
+            }
+        }
+
+        // Push the last argument to the list
+        arguments_list.push_back(current_argument);
+
+        // Trim leading and trailing whitespaces from each argument
+        for (auto& arg : arguments_list) {
+            size_t start = arg.find_first_not_of(" \t\n");
+            size_t end = arg.find_last_not_of(" \t\n");
+            arg = arg.substr(start, end - start + 1);
+        }
+
+        kernel_list.emplace_back(function_name);
+        this_kernel = &(kernel_list[kernel_list.size()-1]);
+        this_kernel->type = CUDAKernelType::Loaded_from_ATen;
+
+        // Print each formal argument
+        for (const auto& arg : arguments_list) {
+            std::cout << "Formal argument: " << arg << std::endl;
+            this_kernel->formals.push_back(arg);
+        }
+
+        //vector<Aten_tensor*> input_tensors;
+        for (const auto& arg : arguments_list) {
+            if (aten_tensors.find(arg)!=aten_tensors.end())
+            {
+                //input_tensors.push_back(aten_tensors[arg]);
+                std::cout<<"Input tensor: "<<arg<<std::endl;
+                this_kernel->aten_inputs.push_back(aten_tensors[arg]);
+                this_kernel->inputs.insert(aten_tensors[arg]->actual_tensor);
+            }
+        }
+    }else
+    {
+        this_kernel = &(kernel_list[kernel_list.size()-1]);
+    }
+
+    //Then process output tensor
+    std::stringstream sin(tensor_str + ',');
+    string tensor_name;
+    sin >> tensor_name;
+    bool multiple_output = false;
+    if(tensor_name[tensor_name.size()-1]!=':'){
+        multiple_output = true;
+    }
+    else
+    {
+        tensor_name.erase(tensor_name.find(':'));
+        if ((tensor_name.size()>=8 && tensor_name.compare(0, 7, "squeeze")==0) || (tensor_name.size()>=10 && tensor_name.compare(0, 9, "unsqueeze")==0))
+        {
+            is_squeeze = true;
+        }
+        
+        string first_term;
+        sin >> first_term;
+        
+        Assert(first_term[0]=='"');
+        first_term.erase(0,1);
+        size_t pos = first_term.find('[');
+        string element_type = first_term.substr(0, pos);
+        string dim_str = first_term.substr(pos+1);
+        int dimensions[10];
+        int num_dim = 1;
+        bool need_loop = false;
+        if (dim_str == "]\",")
+        {
+            dimensions[0] = 1;
+            num_dim = 0;
+        }else {
+            if (dim_str.size()>=3 && dim_str[dim_str.size() - 3] == ']' && dim_str[dim_str.size() - 2] == '"'){
+                dim_str.erase(dim_str.find(']'));
+            }else
+            {
+                Assert(dim_str[dim_str.size() - 1] == ',');
+                dim_str.erase(dim_str.find(','));
+                need_loop = true;
+            }
+            dimensions[0] = atoi(dim_str.c_str());
+        }
+        if (need_loop)
+        {
+            bool last_one = false;
+            while (true)
+            {
+                sin >> dim_str;
+                if (dim_str[dim_str.size()-1] == ':')
+                {
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str += ',';
+                }
+                if (dim_str[dim_str.size()-2] == '\"')
+                {
+                    last_one = true;
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str.erase(dim_str.find('\"'));
+                }
+                dim_str.erase(dim_str.size()-1);
+                dimensions[num_dim] = atoi(dim_str.c_str());
+                num_dim++;
+                if (last_one)
+                {
+                    break;
+                }
+            }
+        }
+
+        long long tensor_size;
+        long element_number = 1;
+        for (int i = 0; i < num_dim; i++)
+        {
+            element_number *= dimensions[i];
+        }
+        if (num_dim==0)
+        {
+            element_number = 1;
+        }
+        
+        
+        if (element_type == "f64" || element_type == "i64")
+        {
+            tensor_size = 8 * element_number;
+        }
+        else if (element_type == "f32" || element_type == "i32")
+        {
+            tensor_size = 4 * element_number;
+        }
+        else if (element_type == "f16")
+        {
+            tensor_size = 2 * element_number;
+        }
+        
+        if (!is_squeeze)
+        {
+            Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name, true);
+            tensor_list.push_back(new_tensor);
+            Aten_tensor* new_aten_tensor = new Aten_tensor(new_tensor);
+            new_aten_tensor->t_name = tensor_name;
+            new_aten_tensor->dim = num_dim;
+            for (int i = 0; i < num_dim; i++)
+            {
+                new_aten_tensor->dims[i] = dimensions[i];
+            }
+            aten_tensors[tensor_name] = new_aten_tensor;
+            this_kernel->aten_outputs.push_back(new_aten_tensor);
+            this_kernel->outputs.insert(new_aten_tensor->actual_tensor);
+        }
+        else
+        {
+            Aten_tensor* new_aten_tensor = new Aten_tensor(this_kernel->aten_inputs[0]->actual_tensor);
+            new_aten_tensor->t_name = tensor_name;
+            new_aten_tensor->dim = num_dim;
+            for (int i = 0; i < num_dim; i++)
+            {
+                new_aten_tensor->dims[i] = dimensions[i];
+            }
+            aten_tensors[tensor_name] = new_aten_tensor;
+            kernel_list.pop_back();
+            // this_kernel->aten_outputs.push_back(new_aten_tensor);
+            // this_kernel->outputs.insert(new_aten_tensor->actual_tensor);
+
+        }
+        std::cout<<"Tensor: "<<tensor_name<<", ele_type: "<<element_type<<", size: "<<tensor_size<<std::endl;
+    }
+
+    if (multiple_output)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+
+
+void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_filename){
+    std::ifstream forward_inputFile(forward_filename);
+    if (!forward_inputFile.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+        exit(1);
+    }
+
+    std::ifstream backward_inputFile(backward_filename);
+    if (!backward_inputFile.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+        exit(1);
+    }
+
+    std::string line;
+    while (std::getline(forward_inputFile, line)) {
+        // Check if the line is not empty
+        if (!line.empty()) {
+            // Check if the last character is a newline character '\n'
+            if (line.back() == '\n') {
+                // If yes, remove it
+                line.pop_back();
+            }
+            // Remove leading whitespace characters
+            line.erase(line.begin(), std::find_if_not(line.begin(), line.end(), isSpace));
+
+            if (line.size() >= 35 && line.compare(0, 34, "class GraphModule(torch.nn.Module)") == 0)
+            {
+                continue;
+            }
+            else if (line.size() >= 17 && line.compare(0, 16, "def forward(self") == 0)
+            {
+                pytorch_fxgraph_input_global_tensors_pass(line);
+            }
+            else if(line.size() >= 2 && line.compare(0, 1, "#") == 0)
+            {
+                continue;
+            }
+            else if(line.size() >= 7 && line.compare(0, 6, "return") == 0)
+            {
+                continue;
+            }
+            else if(line.size() >= 6 && line.compare(0, 5, "copy_") == 0){
+                continue;
+            }
+            else if (line.size() >= 8 && line.compare(0, 7, "getitem") == 0)
+            {
+                // Find the position of the ';' character
+                size_t semicolonPos = line.find(';');
+
+                if (semicolonPos != std::string::npos) {
+                    // If ';' is found, discard all characters after it (including ';')
+                    line = line.substr(0, semicolonPos);
+                }
+
+                // Find the position of the " = " substring
+                size_t delimiterPos = line.find(" = ");
+
+                if (delimiterPos != std::string::npos) {
+                    // Extract substrings before and after the delimiter
+                    std::string key = line.substr(0, delimiterPos);
+                    std::string value = line.substr(delimiterPos + 3); // Skip the delimiter itself
+
+                    std::cout << "Key: " << key << std::endl;
+                    std::cout << "Value: " << value << std::endl;
+
+                    Process_one_aten_line(key, value, true);
+                    
+                } else {
+                    std::cerr << "Delimiter ' = ' not found in the string." << std::endl;
+                    std::cerr <<line<<std::endl;
+                    exit(1);
+                }
+            }
+            else if(!line.empty())
+            {
+                // Find the position of the ';' character
+                size_t semicolonPos = line.find(';');
+
+                if (semicolonPos != std::string::npos) {
+                    // If ';' is found, discard all characters after it (including ';')
+                    line = line.substr(0, semicolonPos);
+                }
+
+                // Find the position of the " = " substring
+                size_t delimiterPos = line.find(" = ");
+
+                if (delimiterPos != std::string::npos) {
+                    // Extract substrings before and after the delimiter
+                    std::string key = line.substr(0, delimiterPos);
+                    std::string value = line.substr(delimiterPos + 3); // Skip the delimiter itself
+
+                    std::cout << "Key: " << key << std::endl;
+                    std::cout << "Value: " << value << std::endl;
+                    int ret = Process_one_aten_line(key, value, false); //TODO:
+                    if (ret==1) //multi outputs
+                    {
+                        continue;
+                    }
+                    // return;
+                } else {
+                    std::cerr << "Delimiter ' = ' not found in the string." << std::endl;
+                    std::cerr <<line<<std::endl;
+                    exit(1);
+                }
+            }
+            
+            
+            // Process the modified line here (without '\n' at the end)
+            // std::cout << "Line read: " << line << std::endl;
+        }
+    }
+
+    while (std::getline(backward_inputFile, line)) {
+        // Check if the line is not empty
+        if (!line.empty()) {
+            // Check if the last character is a newline character '\n'
+            if (line.back() == '\n') {
+                // If yes, remove it
+                line.pop_back();
+            }
+            // Remove leading whitespace characters
+            line.erase(line.begin(), std::find_if_not(line.begin(), line.end(), isSpace));
+
+            if (line.size() >= 35 && line.compare(0, 34, "class GraphModule(torch.nn.Module)") == 0)
+            {
+                continue;
+            }
+            else if (line.size() >= 17 && line.compare(0, 16, "def forward(self") == 0)
+            {
+                continue;
+            }
+            else if(line.size() >= 2 && line.compare(0, 1, "#") == 0)
+            {
+                continue;
+            }
+            else if(line.size() >= 7 && line.compare(0, 6, "return") == 0)
+            {
+                continue;
+            }
+            else if(line.size() >= 6 && line.compare(0, 5, "copy_") == 0){
+                continue;
+            }
+            else if (line.size() >= 8 && line.compare(0, 7, "getitem") == 0)
+            {
+                // Find the position of the ';' character
+                size_t semicolonPos = line.find(';');
+
+                if (semicolonPos != std::string::npos) {
+                    // If ';' is found, discard all characters after it (including ';')
+                    line = line.substr(0, semicolonPos);
+                }
+
+                // Find the position of the " = " substring
+                size_t delimiterPos = line.find(" = ");
+
+                if (delimiterPos != std::string::npos) {
+                    // Extract substrings before and after the delimiter
+                    std::string key = line.substr(0, delimiterPos);
+                    std::string value = line.substr(delimiterPos + 3); // Skip the delimiter itself
+
+                    std::cout << "Key: " << key << std::endl;
+                    std::cout << "Value: " << value << std::endl;
+
+                    Process_one_aten_line(key, value, true);
+                    
+                } else {
+                    std::cerr << "Delimiter ' = ' not found in the string." << std::endl;
+                    std::cerr <<line<<std::endl;
+                    exit(1);
+                }
+            }
+            else if(!line.empty())
+            {
+                // Find the position of the ';' character
+                size_t semicolonPos = line.find(';');
+
+                if (semicolonPos != std::string::npos) {
+                    // If ';' is found, discard all characters after it (including ';')
+                    line = line.substr(0, semicolonPos);
+                }
+
+                // Find the position of the " = " substring
+                size_t delimiterPos = line.find(" = ");
+
+                if (delimiterPos != std::string::npos) {
+                    // Extract substrings before and after the delimiter
+                    std::string key = line.substr(0, delimiterPos);
+                    std::string value = line.substr(delimiterPos + 3); // Skip the delimiter itself
+
+                    std::cout << "Key: " << key << std::endl;
+                    std::cout << "Value: " << value << std::endl;
+                    int ret = Process_one_aten_line(key, value, false); //TODO:
+                    if (ret==1) //multi outputs
+                    {
+                        continue;
+                    }
+                    // return;
+                } else {
+                    std::cerr << "Delimiter ' = ' not found in the string." << std::endl;
+                    std::cerr <<line<<std::endl;
+                    exit(1);
+                }
+            }
+            
+            
+            // Process the modified line here (without '\n' at the end)
+            // std::cout << "Line read: " << line << std::endl;
+        }
+    }
+
+    forward_inputFile.close();
+    backward_inputFile.close();
+};
+
+
+
+void pytorch_fxgraph_input_global_tensors_pass(string forward_line){
+    std::stringstream sin(forward_line);
+    string garbage;
+    sin >> garbage;
+    Assert(garbage=="def");
+    sin >> garbage;
+    Assert(garbage=="forward(self,");
+    string tensor_name;
+    bool end_loop = false;
+    while(sin >> tensor_name){
+        Assert(tensor_name[tensor_name.size()-1]==':');
+        tensor_name.erase(tensor_name.find(':'));
+        string first_term;
+        sin >> first_term;
+        if (first_term[first_term.size()-1] == ':')
+        {
+            first_term.erase(first_term.size()-1);
+            first_term.erase(first_term.size()-1);
+            first_term += ',';
+            end_loop = true;
+        }
+        
+        Assert(first_term[0]=='"');
+        first_term.erase(0,1);
+        size_t pos = first_term.find('[');
+        string element_type = first_term.substr(0, pos);
+        string dim_str = first_term.substr(pos+1);
+        int dimensions[10];
+        int num_dim = 1;
+        bool need_loop = false;
+        if (dim_str == "]\",")
+        {
+            dimensions[0] = 1;
+            num_dim = 0;
+        }else {
+            if (dim_str.size()>=3 && dim_str[dim_str.size() - 3] == ']' && dim_str[dim_str.size() - 2] == '"'){
+                dim_str.erase(dim_str.find(']'));
+            }else
+            {
+                Assert(dim_str[dim_str.size() - 1] == ',');
+                dim_str.erase(dim_str.find(','));
+                need_loop = true;
+            }
+            dimensions[0] = atoi(dim_str.c_str());
+        }
+        if (need_loop)
+        {
+            bool last_one = false;
+            while (true)
+            {
+                sin >> dim_str;
+                if (dim_str[dim_str.size()-1] == ':')
+                {
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str += ',';
+                    end_loop = true;
+                }
+                if (dim_str[dim_str.size()-2] == '\"')
+                {
+                    last_one = true;
+                    dim_str.erase(dim_str.size()-1);
+                    dim_str.erase(dim_str.find('\"'));
+                }
+                dim_str.erase(dim_str.size()-1);
+                dimensions[num_dim] = atoi(dim_str.c_str());
+                num_dim++;
+                if (last_one)
+                {
+                    break;
+                }
+            }
+        }
+
+        long long tensor_size;
+        long element_number = 1;
+        for (int i = 0; i < num_dim; i++)
+        {
+            element_number *= dimensions[i];
+        }
+        if (num_dim==0)
+        {
+            element_number = 1;
+        }
+        
+        
+        if (element_type == "f64" || element_type == "i64")
+        {
+            tensor_size = 8 * element_number;
+        }
+        else if (element_type == "f32" || element_type == "i32")
+        {
+            tensor_size = 4 * element_number;
+        }
+        else if (element_type == "f16")
+        {
+            tensor_size = 2 * element_number;
+        }
+        
+        Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name, true);
+        tensor_list.push_back(new_tensor);
+        std::cout<<"Tensor: "<<tensor_name<<", ele_type: "<<element_type<<", size: "<<tensor_size<<std::endl;
+        Aten_tensor* new_aten_tensor = new Aten_tensor(new_tensor);
+        new_aten_tensor->t_name = tensor_name;
+        new_aten_tensor->dim = num_dim;
+        for (int i = 0; i < num_dim; i++)
+        {
+            new_aten_tensor->dims[i] = dimensions[i];
+        }
+        aten_tensors[tensor_name] = new_aten_tensor;
+
+        if (end_loop)
+        {
+            break;
+        }
+    }
+}
+
+
+void pytorch_profile_codegen(string gen_file){
+    std::ofstream gen(gen_file);
+    if (!gen.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+        exit(1);
+    }
+
+    //TODO: Fill this:
+
+    for (int i = 0; i < kernel_list.size(); i++)
+    {
+        CUDAKernel this_op = kernel_list[i];
+
+        //First allocate input/outputs
+        for (auto input : this_op.aten_inputs)
+        {
+            gen << "Input: " << input->t_name << "  #Dim: "<<input->actual_tensor->element_type<<"[";
+            for (int j = 0; j < input->dim-1; j++)
+            {
+                gen << input->dims[j] << ", ";
+            }
+            gen << input->dims[input->dim-1];
+            gen << "]"<< std::endl;
+        }
+
+        for (auto output : this_op.aten_outputs)
+        {
+            gen << "Output: " << output->t_name << "  #Dim: "<<output->actual_tensor->element_type<<"[";
+            for (int j = 0; j < output->dim - 1; j++)
+            {
+                gen << output->dims[j] << ", ";
+            }
+            gen << output->dims[output->dim-1];
+            gen << "]"<< std::endl;
+        }
+
+        //Then function call
+        
+        gen << this_op.op_name << "(";
+        for (int j = 0; j < this_op.formals.size() - 1; j++)
+        {
+            gen << this_op.formals[j] << ", ";
+        }
+        gen << this_op.formals[this_op.formals.size() - 1];
+        gen << ")" << std::endl;
+
+    }
+    
+
+}
+
+
 
 
 // void Model_Layer::give_next_layer_size(int* N, int* C, int* H, int* W){
@@ -391,6 +1036,30 @@ Tensor::Tensor(long long size, bool glob) {
         size_in_byte = N_pages * 4096;
     }
 }
+
+
+
+Tensor::Tensor(long long size, std::string ele_type, std::string t_name, bool glob) {
+    static int tensor_count = 0;
+    tensor_id = tensor_count++;
+    size_in_byte = size;
+    raw_size_byte = size;
+    is_global_weight = glob;
+    if (glob)
+    {
+        address_offset = memory_offset_weights;
+        memory_offset_weights += size;
+    }
+    else
+    {
+        address_offset = memory_offset_intermediate;
+        memory_offset_intermediate += size;
+    }
+    element_type = ele_type;
+    this->t_name = t_name;
+}
+
+
 
 unsigned long Tensor::getGlobalOffset() {
     return address_offset + (is_global_weight ? 0 : memory_offset_weights);
@@ -931,6 +1600,13 @@ CUDAKernel::CUDAKernel(CUDAKernelType t, Model_OP* op){
     type = t;
     parent_op = op;
 }
+
+CUDAKernel::CUDAKernel(string name){
+    op_name = name;
+    kernel_id = kernel_index;
+    kernel_index++;
+}
+
 
 
 void CUDAKernel::print(){

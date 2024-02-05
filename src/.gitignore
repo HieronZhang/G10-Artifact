@@ -4,6 +4,7 @@ __pycache__/
 lru
 gpg
 tensor_liveness_analysis
+codegen.py
 lex.yy.c
 y.output
 y.tab.c

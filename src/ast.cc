@@ -842,12 +842,12 @@ void transformer_parse(std::string filename){
         op_map[new_op->op_id] = new_op;
         
     }
-    if (borden>200 && batch_size ==512 && SSD_PCIe_bandwidth_GBps < 6.3)
-    {
-        loosen_parameter = 1.394;
-    }
-    else if(borden<200 && is_transformer==1 && batch_size ==1280 && SSD_PCIe_bandwidth_GBps > 6.3 && SSD_PCIe_bandwidth_GBps < 6.5){
-        loosen_parameter = 1.1;
-    }
+    // if (borden>200 && batch_size ==512 && SSD_PCIe_bandwidth_GBps < 6.3)
+    // {
+    //     loosen_parameter = 1.394;
+    // }
+    // else if(borden<200 && is_transformer==1 && batch_size ==1280 && SSD_PCIe_bandwidth_GBps > 6.3 && SSD_PCIe_bandwidth_GBps < 6.5){
+    //     loosen_parameter = 1.1;
+    // }
     
 }

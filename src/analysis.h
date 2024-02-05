@@ -20,10 +20,10 @@ typedef enum {
     Scale_Forward, Scale_Backward, GatherV2_Forward, GatherV2_Backward, Add_Backward, Divide_Forward, Divide_Backward_A, Divide_Backward_B, 
     Multiply_Forward, Multiply_Backward, Power_Forward, Power_Backward, Sqrt_Forward, Sqrt_Backward, SoftmaxBasic_Forward, 
     SoftmaxBasic_Backward, Subtract_Forward, Subtract_Backward, Sum_Forward, Sum_Backward, Tanh_Forward, Tanh_Backward, 
-    BatchMatMul_Forward, BatchMatMul_Backward, Apply_Grad, Erf_Forward, Erf_Backward
+    BatchMatMul_Forward, BatchMatMul_Backward, Apply_Grad, Erf_Forward, Erf_Backward, Loaded_from_ATen
 } CUDAKernelType;
 
-const std::string print_kerneltype_array [54] = {
+const std::string print_kerneltype_array [55] = {
     "Conv2d_Forward", "ReLU_Forward", "MaxPool2d_Forward", "AdaptiveAvgPool2d_Forward", "Linear_Forward", 
     "Dropout_Forward", "BatchNorm2d_Forward", "Conv2d_Backward_Weight", "Conv2d_Backward_Input", "Conv2d_Apply_Grad",
     "ReLU_Backward", "MaxPool2d_Backward", "AdaptiveAvgPool2d_Backward", "Linear_Backward_Weight", "Linear_Backward_Input", 
@@ -32,7 +32,7 @@ const std::string print_kerneltype_array [54] = {
     "Scale_Forward", "Scale_Backward", "GatherV2_Forward", "GatherV2_Backward", "Add_Backward", "Divide_Forward", "Divide_Backward_A", "Divide_Backward_B", 
     "Multiply_Forward", "Multiply_Backward", "Power_Forward", "Power_Backward", "Sqrt_Forward", "Sqrt_Backward", "SoftmaxBasic_Forward", 
     "SoftmaxBasic_Backward", "Subtract_Forward", "Subtract_Backward", "Sum_Forward", "Sum_Backward", "Tanh_Forward", "Tanh_Backward", 
-    "BatchMatMul_Forward", "BatchMatMul_Backward", "Apply_Grad", "Erf_Forward", "Erf_Backward"
+    "BatchMatMul_Forward", "BatchMatMul_Backward", "Apply_Grad", "Erf_Forward", "Erf_Backward", "Loaded_from_ATen"
 };
 
 enum Eviction_P {
@@ -53,6 +53,13 @@ class CUDAKernel {
         std::unordered_set<Tensor*> inputs;
         std::unordered_set<Tensor*> outputs;
         Tensor* workspace = nullptr;
+
+        //Pytorch-Aten
+        std::string op_name;
+        std::vector<std::string> formals;
+        //For code-gen
+        std::vector<Aten_tensor*> aten_inputs;
+        std::vector<Aten_tensor*> aten_outputs;
         
         /**
          * @brief number of cycles for the kernel to execute assume all the tensors 
@@ -64,6 +71,7 @@ class CUDAKernel {
 
         CUDAKernel(CUDAKernelType t, Model_Layer* layer);
         CUDAKernel(CUDAKernelType t, Model_OP* op_layer);
+        CUDAKernel(string name);
         void getRequiredTensors(std::vector<Tensor*> &required_tensors) const;
         void getRequiredTensors(std::unordered_set<Tensor*> &required_tensors) const;
         void getRequiredTensors(std::vector<Tensor*> &required_tensors,
@@ -189,6 +197,11 @@ class FlashNeuron_simulator{
         int serve_one_pending_event(int kernel_event_id);
         void check_fetch_allocation();
 };
+
+//Pytorch-frontend:
+void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_filename);
+void pytorch_fxgraph_input_global_tensors_pass(string forward_line);
+void pytorch_profile_codegen(string gen_file);
 
 //Transformers:
 void transformer_op_datalow_pass(int borden);

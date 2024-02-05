@@ -315,11 +315,13 @@ class BatchNorm2d : public Operatorr
 
 class Hidding_Interval;
 
+
 class Tensor
 {
     private:
         Tensor();
     public:
+        Tensor(long long size, std::string ele_type, std::string t_name, bool glob = false); // For Pytorch frontend
         Tensor(long long size, bool glob = false);
         unsigned long getGlobalOffset();
         std::string name() const;
@@ -337,12 +339,28 @@ class Tensor
         int live_interval[2]; //live_interval[0] = birth; live_interval[1] = death; if death=-1, it means that this tensor is always dead
         std::vector<Hidding_Interval*> hidding_intervals;
 
+    //Pytorch_frontend
+        std::string element_type;
+        std::string t_name;
+
     //Flashneuron only: (starts with 'f')
         bool f_is_allocated_on_GPU = false;
         bool f_is_choosed_to_offload = false;
         bool f_is_fetching = false;
         long f_page_range[2];
 };
+
+class Aten_tensor{
+  public:
+  Aten_tensor(Tensor* tensor){
+    actual_tensor = tensor;
+  };
+  std::string t_name;
+  int dim;
+  int dims[10];
+  Tensor* actual_tensor;
+};
+
 
 class Hidding_Interval
 {

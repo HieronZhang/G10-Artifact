@@ -73,6 +73,7 @@ bool is_UVM = true;
 //   In simulation, num_iteration specifies number of iterations to run
 int num_iteration = -1;
 int is_transformer = 1;
+int is_pytorch_frontend = 1;
 int borden = 184;
 
 // 
@@ -566,7 +567,11 @@ int main(int argc, char *argv[]) {
 
     SetupOutputFolder();
 
-    if (is_transformer==1)
+    if (is_pytorch_frontend==1){
+        pytorch_fxgraph_parse("../fx_graph_transformed_forward.py", "../fx_graph_transformed_backward.py");
+        //return 0;
+    }
+    else if (is_transformer==1)
     {
         transformer_parse(nn_model_input_file.c_str());
         transformer_op_datalow_pass(borden);
@@ -598,8 +603,13 @@ int main(int argc, char *argv[]) {
         delete r;
     }
 
-   
-    if (is_transformer==1)
+    if (is_pytorch_frontend==1)
+    {
+        //TODO: gen code
+        pytorch_profile_codegen("codegen.py");
+        return 0;
+    }
+    else if (is_transformer==1)
     {
         // layer info
         r = new RedirStdOut("layers.config");
