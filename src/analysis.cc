@@ -727,9 +727,11 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
 
     // import torch
     // import time
+    // from torch import device
     // from typing import List, Dict
     gen << "import torch" << std::endl;
     gen << "import time" << std::endl;
+    gen << "from torch import device" << std::endl;
     gen << "from typing import List, Dict" << std::endl;
     gen << std::endl;
 
