@@ -111,9 +111,9 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
             function_name = op_str.substr(0, openingParenthesisPos);
 
             // Find the position of the closing parenthesis ')'
-            size_t closingParenthesisPos = op_str.find(')', openingParenthesisPos);
+            size_t closingParenthesisPos = op_str.rfind(')', op_str.size());
 
-            if (closingParenthesisPos != std::string::npos) {
+            if (closingParenthesisPos != string::npos) {
                 // Extract the formal arguments
                 arguments = op_str.substr(openingParenthesisPos + 1, closingParenthesisPos - openingParenthesisPos - 1);
 
@@ -136,6 +136,12 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
             if (c == '[') {
                 brackets_count++;
             } else if (c == ']') {
+                brackets_count--;
+            }
+
+            if (c == '('){
+                brackets_count++;
+            } else if (c == ')'){
                 brackets_count--;
             }
 
