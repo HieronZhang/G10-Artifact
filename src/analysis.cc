@@ -785,8 +785,8 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
         // for _ in range(@iter):
         gen << "for _ in range(" << iter << "):" << std::endl;
 
-        //     @this_op->op_name(@this_op->formals)
-        gen << "    " << this_op.op_name << "(";
+        //     output = @this_op->op_name(@this_op->formals)
+        gen << "    output = " << this_op.op_name << "(";
         for (int j = 0; j < this_op.formals.size() - 1; j++)
         {
             gen << this_op.formals[j] << ", ";
