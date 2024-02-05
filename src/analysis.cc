@@ -658,7 +658,55 @@ void pytorch_fxgraph_input_global_tensors_pass(string forward_line){
 }
 
 
-void pytorch_profile_codegen(string gen_file){
+static string get_printable_output_name_list(CUDAKernel& this_op){
+    std::stringstream ret;
+    for (int i = 0; i < this_op.aten_outputs.size(); i++)
+    {
+        ret << this_op.aten_outputs[i]->t_name;
+        if (i != this_op.aten_outputs.size() - 1)
+        {
+            ret << ", ";
+        }
+    }
+
+    return ret.str();
+}
+
+
+static string get_torch_element_type_str(string element_type){
+    if (element_type == "f64")
+    {
+        return "torch.float64";
+    }
+    else if (element_type == "f32")
+    {
+        return "torch.float32";
+    }
+    else if (element_type == "f16")
+    {
+        return "torch.float16";
+    }
+    else if (element_type == "i64")
+    {
+        return "torch.int64";
+    }
+    else if (element_type == "i32")
+    {
+        return "torch.int32";
+    }
+    else if (element_type == "b8")
+    {
+        return "torch.uint8";  // b8 seems to boolean type and occupies 8-bit storage
+    }
+    else
+    {
+        std::cerr << "Error: Unknown element type: \"" << element_type << "\"" << std::endl;
+        exit(1);
+    }
+}
+
+
+void pytorch_profile_codegen(string gen_file, unsigned int iter){
     std::ofstream gen(gen_file);
     if (!gen.is_open()) {
         std::cerr << "Error opening file." << std::endl;
@@ -667,25 +715,60 @@ void pytorch_profile_codegen(string gen_file){
 
     //TODO: Fill this:
 
+    // import torch
+    // import time
+    // from typing import List, Dict
+    gen << "import torch" << std::endl;
+    gen << "import time" << std::endl;
+    gen << "from typing import List, Dict" << std::endl;
+    gen << std::endl;
+
+    // time_dict: Dict[str, float] = {} # tensor_name -> time
+    gen << "time_dict: Dict[str, float] = {} # tensor_name -> time" << std::endl;
+    gen << std::endl;
+
+    // print(f"Profiling @kernel_list.size()+1 tensors...")
+    gen << "print(f\"Profiling " << kernel_list.size() + 1 << " tensors...\")" << std::endl;
+    gen << std::endl;
+
     for (int i = 0; i < kernel_list.size(); i++)
     {
         CUDAKernel this_op = kernel_list[i];
+        string output_name = get_printable_output_name_list(this_op);
 
-        //First allocate input/outputs
+        // print(f"Profiling @i+1/@kernel_list.size()+1:")
+        // print(f"op call: @this_op->op_name")
+        gen << "print(f\"Profiling " << i + 1 << "/" << kernel_list.size() + 1 << ":\")" << std::endl;
+        gen << "print(f\"op call: " << this_op.op_name << "\")" << std::endl;
+
+        // First allocate input/outputs
         for (auto input : this_op.aten_inputs)
         {
-            gen << "Input: " << input->t_name << "  #Dim: "<<input->actual_tensor->element_type<<"[";
+            // # Input: @input->t_name  #Dim: @input->actual_tensor->element_type[@input->dims]
+            gen << "# Input: " << input->t_name << "  #Dim: "<<input->actual_tensor->element_type<<"[";
             for (int j = 0; j < input->dim-1; j++)
             {
                 gen << input->dims[j] << ", ";
             }
             gen << input->dims[input->dim-1];
             gen << "]"<< std::endl;
+            
+            string torch_element_type = get_torch_element_type_str(input->actual_tensor->element_type);
+
+            // @input->t_name = torch.randn(@input->dims, dtype=@torch_element_type).to("cuda")
+            gen << input->t_name << " = torch.randn([";
+            for (int j = 0; j < input->dim-1; j++)
+            {
+                gen << input->dims[j] << ", ";
+            }
+            gen << input->dims[input->dim-1];
+            gen << "], dtype=" << torch_element_type << ").to(\"cuda\")" << std::endl;
         }
 
         for (auto output : this_op.aten_outputs)
         {
-            gen << "Output: " << output->t_name << "  #Dim: "<<output->actual_tensor->element_type<<"[";
+            // # Output: @output->t_name  #Dim: @output->actual_tensor->element_type[@output->dims]
+            gen << "# Output: " << output->t_name << "  #Dim: "<<output->actual_tensor->element_type<<"[";
             for (int j = 0; j < output->dim - 1; j++)
             {
                 gen << output->dims[j] << ", ";
@@ -695,8 +778,15 @@ void pytorch_profile_codegen(string gen_file){
         }
 
         //Then function call
-        
-        gen << this_op.op_name << "(";
+
+        // t0 = time.time()
+        gen << "t0 = time.time()" << std::endl;
+
+        // for _ in range(@iter):
+        gen << "for _ in range(" << iter << "):" << std::endl;
+
+        //     @this_op->op_name(@this_op->formals)
+        gen << "    " << this_op.op_name << "(";
         for (int j = 0; j < this_op.formals.size() - 1; j++)
         {
             gen << this_op.formals[j] << ", ";
@@ -704,8 +794,26 @@ void pytorch_profile_codegen(string gen_file){
         gen << this_op.formals[this_op.formals.size() - 1];
         gen << ")" << std::endl;
 
+        // torch.cuda.current_stream().synchronize()
+        gen << "torch.cuda.current_stream().synchronize()" << std::endl;
+
+        // t1 = time.time()
+        gen << "t1 = time.time()" << std::endl;
+
+        // assert "@output" not in time_dict, f"Error: tensor {output} already in time_dict"
+        gen << "assert \"" << output_name << "\" not in time_dict, f\"Error: tensor " << output_name << " already in time_dict\"" << std::endl;
+
+        // time_dict[@output_name] = (t1 - t0) / iter * 1000
+        gen << "time_dict[\"" << output_name << "\"] = (t1 - t0) / " << iter << " * 1000" << std::endl;
+        gen << std::endl;
+
     }
     
+    // import json
+    gen << "import json" << std::endl;
+    // json.dump(time_dict, open("time_dict.json", "w"))
+    gen << "json.dump(time_dict, open(\"time_dict.json\", \"w\"))" << std::endl;
+
 
 }
 
