@@ -200,7 +200,7 @@ class FlashNeuron_simulator{
 
 //Pytorch-frontend:
 void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_filename);
-void pytorch_fxgraph_input_global_tensors_pass(string forward_line);
+void pytorch_fxgraph_input_global_tensors_pass(string forward_line, bool is_forward);
 void pytorch_profile_codegen(string gen_file, unsigned int iter = 100);
 
 //Transformers:

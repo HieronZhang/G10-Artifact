@@ -360,7 +360,7 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
             }
             else if (line.size() >= 17 && line.compare(0, 16, "def forward(self") == 0)
             {
-                pytorch_fxgraph_input_global_tensors_pass(line);
+                pytorch_fxgraph_input_global_tensors_pass(line, true);
             }
             else if(line.size() >= 2 && line.compare(0, 1, "#") == 0)
             {
@@ -422,7 +422,7 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
 
                     std::cout << "Key: " << key << std::endl;
                     std::cout << "Value: " << value << std::endl;
-                    int ret = Process_one_aten_line(key, value, false); //TODO:
+                    int ret = Process_one_aten_line(key, value, false); 
                     if (ret==1) //multi outputs
                     {
                         continue;
@@ -458,7 +458,7 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
             }
             else if (line.size() >= 17 && line.compare(0, 16, "def forward(self") == 0)
             {
-                continue;
+                pytorch_fxgraph_input_global_tensors_pass(line, false);
             }
             else if(line.size() >= 2 && line.compare(0, 1, "#") == 0)
             {
@@ -545,7 +545,7 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
 
 
 
-void pytorch_fxgraph_input_global_tensors_pass(string forward_line){
+void pytorch_fxgraph_input_global_tensors_pass(string forward_line, bool is_forward){
     std::stringstream sin(forward_line);
     string garbage;
     sin >> garbage;
@@ -644,17 +644,21 @@ void pytorch_fxgraph_input_global_tensors_pass(string forward_line){
             tensor_size = 2 * element_number;
         }
         
-        Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name, true);
-        tensor_list.push_back(new_tensor);
-        std::cout<<"Tensor: "<<tensor_name<<", ele_type: "<<element_type<<", size: "<<tensor_size<<std::endl;
-        Aten_tensor* new_aten_tensor = new Aten_tensor(new_tensor);
-        new_aten_tensor->t_name = tensor_name;
-        new_aten_tensor->dim = num_dim;
-        for (int i = 0; i < num_dim; i++)
+        if (aten_tensors.find(tensor_name)==aten_tensors.end())
         {
-            new_aten_tensor->dims[i] = dimensions[i];
+            Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name, is_forward);
+
+            tensor_list.push_back(new_tensor);
+            std::cout<<"Tensor: "<<tensor_name<<", ele_type: "<<element_type<<", size: "<<tensor_size<<std::endl;
+            Aten_tensor* new_aten_tensor = new Aten_tensor(new_tensor);
+            new_aten_tensor->t_name = tensor_name;
+            new_aten_tensor->dim = num_dim;
+            for (int i = 0; i < num_dim; i++)
+            {
+                new_aten_tensor->dims[i] = dimensions[i];
+            }
+            aten_tensors[tensor_name] = new_aten_tensor;
         }
-        aten_tensors[tensor_name] = new_aten_tensor;
 
         if (end_loop)
         {
