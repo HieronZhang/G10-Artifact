@@ -728,11 +728,9 @@ static string get_torch_element_type_str(string element_type){
 void pytorch_profile_codegen(string gen_file, unsigned int iter){
     std::ofstream gen(gen_file);
     if (!gen.is_open()) {
-        std::cerr << "Error opening file." << std::endl;
+        std::cerr << "Error opening file: " << gen_file << std::endl;
         exit(1);
     }
-
-    //TODO: Fill this:
 
     // import torch
     // import time
@@ -748,8 +746,8 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
     gen << "time_dict: Dict[str, float] = {} # tensor_name -> time" << std::endl;
     gen << std::endl;
 
-    // print(f"Profiling @kernel_list.size()+1 tensors...")
-    gen << "print(f\"Profiling " << kernel_list.size() + 1 << " tensors...\")" << std::endl;
+    // print(f"Profiling @kernel_list.size() tensors...")
+    gen << "print(f\"Profiling " << kernel_list.size() << " tensors...\")" << std::endl;
     gen << std::endl;
 
     for (int i = 0; i < kernel_list.size(); i++)
@@ -757,13 +755,14 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
         CUDAKernel this_op = kernel_list[i];
         string output_name = get_printable_output_name_list(this_op);
 
-        // print(f"Profiling @i+1/@kernel_list.size()+1:")
+        // print(f"Profiling @i+1/@kernel_list.size():")
         // print(f"op call: @this_op->op_name")
-        gen << "print(f\"Profiling " << i + 1 << "/" << kernel_list.size() + 1 << ":\")" << std::endl;
+        gen << "print(f\"Profiling " << i + 1 << "/" << kernel_list.size() << ":\")" << std::endl;
         gen << "print(f\"op call: " << this_op.op_name << "\")" << std::endl;
 
         // First allocate input/outputs
-        for (auto input : this_op.aten_inputs)
+        std::unordered_set<Aten_tensor *> deduplicate_inputs(this_op.aten_inputs.begin(), this_op.aten_inputs.end());
+        for (auto input : deduplicate_inputs)
         {
             // # Input: @input->t_name  #Dim: @input->actual_tensor->element_type[@input->dims]
             gen << "# Input: " << input->t_name << "  #Dim: "<<input->actual_tensor->element_type<<"[";
@@ -771,18 +770,37 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
             {
                 gen << input->dims[j] << ", ";
             }
-            gen << input->dims[input->dim-1];
+            if (input->dim > 0)
+            {
+                gen << input->dims[input->dim-1];
+            }
             gen << "]"<< std::endl;
             
             string torch_element_type = get_torch_element_type_str(input->actual_tensor->element_type);
 
             // @input->t_name = torch.randn(@input->dims, dtype=@torch_element_type).to("cuda")
-            gen << input->t_name << " = torch.randn([";
-            for (int j = 0; j < input->dim-1; j++)
+            // or if @torch_element_type is uint8:
+            // @input->t_name = torch.randint(0, 100, @input->dims, dtype=@torch_element_type).to("cuda")
+            if (torch_element_type.find("int") != string::npos)
             {
-                gen << input->dims[j] << ", ";
+                gen << input->t_name << " = torch.randint(0, 100, [";
+            } else {
+                gen << input->t_name << " = torch.randn([";
             }
-            gen << input->dims[input->dim-1];
+
+            if (input->dim == 0)
+            {   
+                // special case for scalar
+                // @input->t_name = torch.rand*(*, [1], dtype=@torch_element_type).to("cuda")
+                gen << "1";
+            } else {
+                for (int j = 0; j < input->dim-1; j++)
+                {
+                    gen << input->dims[j] << ", ";
+                }
+                gen << input->dims[input->dim-1];
+            }
+
             gen << "], dtype=" << torch_element_type << ").to(\"cuda\")" << std::endl;
         }
 
@@ -821,6 +839,13 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
         // t1 = time.time()
         gen << "t1 = time.time()" << std::endl;
 
+        // deallocate fake input tensors
+        for (auto input : deduplicate_inputs)
+        {
+            // del @input->t_name
+            gen << "del " << input->t_name << std::endl;
+        }
+
         // assert "@output" not in time_dict, f"Error: tensor {output} already in time_dict"
         gen << "assert \"" << output_name << "\" not in time_dict, f\"Error: tensor " << output_name << " already in time_dict\"" << std::endl;
 
@@ -832,9 +857,16 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
     
     // import json
     gen << "import json" << std::endl;
-    // json.dump(time_dict, open("time_dict.json", "w"))
-    gen << "json.dump(time_dict, open(\"time_dict.json\", \"w\"))" << std::endl;
+    // json.dump(time_dict, open("time_dict.json", "w"), indent=4)
+    gen << "json.dump(time_dict, open(\"time_dict.json\", \"w\"), indent=4)" << std::endl;
 
+    // dump txt file: each line is a time in ms (in the execution order of the ops)
+    // with open("time_dict.txt", "w") as f:
+    //     for k, v in time_dict.items():
+    //         f.write(f"{v}\n")
+    gen << "with open(\"time_dict.txt\", \"w\") as f:" << std::endl;
+    gen << "    for k, v in time_dict.items():" << std::endl;
+    gen << "        f.write(f\"{v}\\n\")" << std::endl;
 
 }
 
