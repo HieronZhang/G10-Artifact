@@ -279,9 +279,13 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
         {
             tensor_size = 4 * element_number;
         }
-        else if (element_type == "f16")
+        else if (element_type == "f16" || element_type == "i16")
         {
             tensor_size = 2 * element_number;
+        }
+        else if (element_type == "b8")
+        {
+            tensor_size = 1 * element_number;
         }
         
         if (!is_squeeze)
@@ -639,10 +643,15 @@ void pytorch_fxgraph_input_global_tensors_pass(string forward_line, bool is_forw
         {
             tensor_size = 4 * element_number;
         }
-        else if (element_type == "f16")
+        else if (element_type == "f16" || element_type == "i16")
         {
             tensor_size = 2 * element_number;
         }
+        else if (element_type == "b8")
+        {
+            tensor_size = 1 * element_number;
+        }
+        
         
         if (aten_tensors.find(tensor_name)==aten_tensors.end())
         {
