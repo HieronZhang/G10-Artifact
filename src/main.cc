@@ -647,7 +647,7 @@ int main(int argc, char *argv[]) {
         orig_kernel_time_file = "time_dict.txt";
         pytorch_profile_codegen("codegen.py");
         iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
-        // system("python3 codegen.py");
+        system("python3 codegen.py");
     }
     
 
