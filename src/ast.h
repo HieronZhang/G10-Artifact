@@ -327,6 +327,7 @@ class Tensor
         std::string name() const;
         bool is_alive(int current_kernel) const;
         void print() const;
+        void aten_print();
         void print_liveness();
         void print_intervals();
 
@@ -359,6 +360,7 @@ class Aten_tensor{
   int dim;
   int dims[10];
   Tensor* actual_tensor;
+  void print();
 };
 
 

@@ -72,7 +72,7 @@ bool is_UVM = true;
 //   In codegen, num_iteration specifies number of iterations to profile
 //   In simulation, num_iteration specifies number of iterations to run
 int num_iteration = -1;
-int is_transformer = 1;
+int is_transformer = 0;
 int is_pytorch_frontend = 1;
 int borden = 184;
 
@@ -106,6 +106,9 @@ std::string pf_kernel_time_file;
 std::string stat_output_file;
 std::string output_folder_name;
 std::string file_pf_string;
+std::string nn_model_input_forward;
+std::string nn_model_input_backward;
+std::string nn_model_input_weight;
 // simulation switches
 bool is_simulation = true;
 bool output_override = false;
@@ -423,6 +426,10 @@ int main(int argc, char *argv[]) {
         else if (command == "output_override")          { output_override = std::stoi(value) != 0; }
         else if (command == "is_simulation")            { is_simulation = std::stoi(value) != 0; }
         else if (command == "is_profiling")             { is_simulation = std::stoi(value) == 0; }
+        else if (command == "is_pytorch")               { is_pytorch_frontend = std::stoi(value); }
+        else if (command == "nn_model_input_forward")   { nn_model_input_forward = value; }
+        else if (command == "nn_model_input_backward")  { nn_model_input_backward = value; }
+        else if (command == "nn_model_input_weight")    { nn_model_input_weight = value; }
         // profiling general settings
         else if (command == "is_individual")            { is_individual = std::stoi(value) != 0; }
         else if (command == "is_compile")               { is_compile = std::stoi(value) != 0; }
@@ -491,7 +498,7 @@ int main(int argc, char *argv[]) {
     // indirection if there is no file is fed through stdin
     if (isatty(fileno(stdin))) {
       if (nn_model_input_file.empty()) {
-        eprintf("No input NN model in either stdin or config file\n", "");
+        //eprintf("No input NN model in either stdin or config file\n", "");
       } else {
         // open a file and redirect to stdin
         std::ifstream nn_model(nn_model_input_file.c_str());
@@ -568,7 +575,12 @@ int main(int argc, char *argv[]) {
     SetupOutputFolder();
 
     if (is_pytorch_frontend==1){
-        pytorch_fxgraph_parse("../fx_graph_transformed_forward.py", "../fx_graph_transformed_backward.py");
+        pytorch_fxgraph_parse(nn_model_input_forward, nn_model_input_backward);
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            kernel_list[i].kernel_id = i;
+        }
+        
         //return 0;
     }
     else if (is_transformer==1)
@@ -593,23 +605,15 @@ int main(int argc, char *argv[]) {
 
 
     printf("\n");
+   
 
-    if (!is_simulation) {
-        // tensor info
-        r = new RedirStdOut("tensors.config");
-        for (size_t i = 0; i < tensor_list.size(); i++) {
-            tensor_list[i]->print();
-        }
-        delete r;
-    }
-
-    if (is_pytorch_frontend==1)
-    {
-        //TODO: gen code
-        pytorch_profile_codegen("codegen.py");
-        return 0;
-    }
-    else if (is_transformer==1)
+    // if (is_pytorch_frontend==1)
+    // {
+    // 
+    //     pytorch_profile_codegen("codegen.py");
+    //     return 0;
+    // }
+    if (is_transformer==1)
     {
         // layer info
         r = new RedirStdOut("layers.config");
@@ -638,25 +642,48 @@ int main(int argc, char *argv[]) {
     nprintf("Global Memory amount: %lld B\n", memory_offset_weights);
     nprintf("Total Memory spend in 1 iteration: %lld B\n", memory_offset_intermediate);
 
-    // return 0;
+    if (is_pytorch_frontend == 1)
+    {
+        orig_kernel_time_file = "time_dict.txt";
+        pytorch_profile_codegen("codegen.py");
+        iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
+        system("python3 codegen.py");
+    }
+    
 
     printf("\n");
     if (is_simulation) {
 
         loadKernelTimes();
 
-        loadWorkspaceSizes();
-        // tensor info
-        r = new RedirStdOut("tensors.config");
-        for (size_t i = 0; i < tensor_list.size(); i++) {
-            tensor_list[i]->print();
+        if (!is_pytorch_frontend)
+        {
+            loadWorkspaceSizes();
         }
-        delete r;
+
+        if (!is_pytorch_frontend)
+        {
+            // tensor info
+            r = new RedirStdOut("tensors.config");
+            for (size_t i = 0; i < tensor_list.size(); i++) {
+                tensor_list[i]->print();
+            }
+            delete r;
+        }else
+        {
+            // tensor info
+            r = new RedirStdOut("tensors.config");
+            for (size_t i = 0; i < tensor_list.size(); i++) {
+                tensor_list[i]->aten_print();
+            }
+            delete r;
+        }
+
 
         // kernel info
         r = new RedirStdOut("kernels.config");
         for (size_t i = 0; i < kernel_list.size(); i++) {
-            kernel_list[i].print();
+            kernel_list[i].aten_print();
         }
         delete r;
 
@@ -694,7 +721,6 @@ int main(int argc, char *argv[]) {
             Assert(false);
         }
 
-        
         
         tensor_first_pass_liveness_analysis();
 
@@ -999,38 +1025,47 @@ int main(int argc, char *argv[]) {
 
 
     } else {
-        is_cudnn = true;
-        if (is_cudnn) {
-            iprintf("Generating main code -- CUDNN mode\n", "");
-            auto start_time = high_resolution_clock::now();
-            cudnn_profiling(true);          // normal run, individual
-            // cudnn_profiling(false);         // normal run, grouped
-            // cudnn_profiling(false, true);   // workspace only
-            duration<float> fsec = high_resolution_clock::now() - start_time;
-            iprintf("Profiling duration: %fs (%fms)\n", fsec.count(), fsec.count() * 1000);
-        } else {
-            wprintf("Profiling without CUDNN deprecated\n", "");
-            iprintf("Generating main code -- %s mode\n", is_individual ? "individual" : "whole");
-            main_code_generation();
-            printf("\n");
 
-            if (is_compile || is_run) {
-                printf("Profiling with Individual: %s, Compile: %s, Run: %s\n",
-                    is_individual ? "True" : "False",
-                    is_compile ? "True" : "False",
-                    is_run ? "True" : "False");
-                // run profiling scripts
-                std::string args = " ";
-                if (is_compile)
-                    args += "-c ";
-                if (is_compile && compile_max_thread_num > 0)
-                    args += "-t " + to_string(compile_max_thread_num) + " ";
-                if (is_run)
-                    args += "-r ";
-                Assert(system((output_folder_name + "/scripts/compileAndRun.sh" + args).c_str()) == 0);
+        if (is_pytorch_frontend == 1)
+        {
+            pytorch_profile_codegen("codegen.py");
+            iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
+            system("python3 codegen.py");
+        }
+        else{
+            is_cudnn = true;
+            if (is_cudnn) {
+                iprintf("Generating main code -- CUDNN mode\n", "");
+                auto start_time = high_resolution_clock::now();
+                cudnn_profiling(true);          // normal run, individual
+                // cudnn_profiling(false);         // normal run, grouped
+                // cudnn_profiling(false, true);   // workspace only
+                duration<float> fsec = high_resolution_clock::now() - start_time;
+                iprintf("Profiling duration: %fs (%fms)\n", fsec.count(), fsec.count() * 1000);
             } else {
-                iprintf("Both Compile and Run are disabled, run <%s> manually to profile\n",
-                    (output_folder_name + "/scripts/compileAndRun.sh").c_str());
+                wprintf("Profiling without CUDNN deprecated\n", "");
+                iprintf("Generating main code -- %s mode\n", is_individual ? "individual" : "whole");
+                main_code_generation();
+                printf("\n");
+
+                if (is_compile || is_run) {
+                    printf("Profiling with Individual: %s, Compile: %s, Run: %s\n",
+                        is_individual ? "True" : "False",
+                        is_compile ? "True" : "False",
+                        is_run ? "True" : "False");
+                    // run profiling scripts
+                    std::string args = " ";
+                    if (is_compile)
+                        args += "-c ";
+                    if (is_compile && compile_max_thread_num > 0)
+                        args += "-t " + to_string(compile_max_thread_num) + " ";
+                    if (is_run)
+                        args += "-r ";
+                    Assert(system((output_folder_name + "/scripts/compileAndRun.sh" + args).c_str()) == 0);
+                } else {
+                    iprintf("Both Compile and Run are disabled, run <%s> manually to profile\n",
+                        (output_folder_name + "/scripts/compileAndRun.sh").c_str());
+                }
             }
         }
     }

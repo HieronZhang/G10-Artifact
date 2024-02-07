@@ -290,7 +290,7 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
         
         if (!is_squeeze)
         {
-            Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name, true);
+            Tensor* new_tensor = new Tensor(tensor_size, element_type, tensor_name);
             tensor_list.push_back(new_tensor);
             Aten_tensor* new_aten_tensor = new Aten_tensor(new_tensor);
             new_aten_tensor->t_name = tensor_name;
@@ -860,14 +860,18 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
     // json.dump(time_dict, open("time_dict.json", "w"), indent=4)
     gen << "json.dump(time_dict, open(\"time_dict.json\", \"w\"), indent=4)" << std::endl;
 
+    // numm = 0
+    gen << "numm = 0" << std::endl;
+
     // dump txt file: each line is a time in ms (in the execution order of the ops)
     // with open("time_dict.txt", "w") as f:
     //     for k, v in time_dict.items():
-    //         f.write(f"{v}\n")
+    //          f.write(f"{numm} {v} ms\n")
+    //          numm = numm + 1 
     gen << "with open(\"time_dict.txt\", \"w\") as f:" << std::endl;
     gen << "    for k, v in time_dict.items():" << std::endl;
-    gen << "        f.write(f\"{v}\\n\")" << std::endl;
-
+    gen << "        f.write(f\"{numm} {v} ms \\n\")" << std::endl;
+    gen << "        numm = numm + 1" << std::endl;
 }
 
 
@@ -1014,6 +1018,15 @@ void Tensor::print() const {
                     ((size_in_byte / 4096) + 1)) * 4096 << 
             std::endl;
 }
+
+
+void Tensor::aten_print() {
+    std::cout << "tensor" << tensor_id << ", Name: " << t_name <<
+            ", Is global?: " << this->is_global_weight << ": " <<
+            "Size in byte: " << size_in_byte << ", " << 
+            std::endl;
+}
+
 
 
 // void Model_Layer::print_name(){
@@ -1847,6 +1860,53 @@ void CUDAKernel::print(){
     std::cout<<"____________________________________________________________________"<<std::endl;
 }
 
+void Aten_tensor::print(){
+    std::cout << "tensor" << this->actual_tensor->tensor_id << ", Name: " << t_name <<
+            ", Is global?: " << this->actual_tensor->is_global_weight << ": " <<
+            "Size in byte: " << this->actual_tensor->size_in_byte << ", " << "Dimensions: " <<this->actual_tensor->element_type<<"[";
+        for (int j = 0; j < this->dim-1; j++)
+            {
+                std::cout << this->dims[j] << ", ";
+            }
+        if (this->dim > 0)
+        {
+            std::cout << this->dims[this->dim-1];
+        }
+        std::cout << "]"<< std::endl;
+}
+
+
+void CUDAKernel::aten_print(){
+    std::cout<<"Kernel ID: "<<kernel_id<<", "<< "Name: "<<op_name<< "(";
+    for (int i = 0; i < this->formals.size() - 1; i++)
+    {
+        std::cout<<this->formals[i]<<", ";
+    }
+    std::cout << this->formals[this->formals.size() - 1];
+    std::cout << ")" << std::endl;
+    
+    
+    //std::cout<<"Execution Time: "<< execution_cycles<<std::endl;
+    if (this->parent_layer)
+    {
+        std::cout<<"("<<parent_layer->N<<","<<parent_layer->C<<","<<parent_layer->H<<","<<parent_layer->W<<")"<<std::endl;
+    }
+
+    std::cout<<"Input Tensors:"<<std::endl;
+    for (auto it = aten_inputs.begin(); it != aten_inputs.end(); it++)
+    {
+        (*it)->print();
+    }
+    std::cout<<"Output Tensors:"<<std::endl;
+    for (auto it = aten_outputs.begin(); it != aten_outputs.end(); it++)
+    {
+        (*it)->print();
+    }
+    std::cout<<"____________________________________________________________________"<<std::endl;
+}
+
+
+
 void CUDAKernel::getRequiredTensors(std::vector<Tensor*> &required_tensors) const {
   std::unordered_set<Tensor *> set;
   getRequiredTensors(set);
@@ -2621,15 +2681,16 @@ void tensor_first_pass_liveness_analysis(){
 }
 
 void Tensor::print_liveness(){
-    this->print();
+    std::cout<<"_____________________________________________________________________________"<<std::endl;
+    this->aten_print();
     if (!this->is_global_weight)
     {
         std::cout<<"Liveness: Birth: "<<this->live_interval[0]<<", Death: "<<this->live_interval[1]<<"."<<std::endl;
     }
     else{
-        std::cout<<"Global!"<<std::endl;
+        std::cout<<"This tensor is Global!"<<std::endl;
     }
-    std::cout<<"____________________________________________________________"<<std::endl;
+    std::cout<<"_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ "<<std::endl;
 }
 
 
@@ -2803,14 +2864,14 @@ void tensor_second_pass_interval_formation(){
 
 
 void Tensor::print_intervals(){
-    print();
+    aten_print();
     std::cout<<"Inactive Periods:"<<std::endl;
     for (int i = 0; i < hidding_intervals.size(); i++)
     {
         std::cout<<"Period "<<i<<": "<<hidding_intervals[i]->kernelLevel_interval[0]<<"--------"<<hidding_intervals[i]->kernelLevel_interval[1]<<std::endl;
-        std::cout<<"Estimated Time:"<<hidding_intervals[i]->time_estimated<<std::endl;
+        std::cout<<"Estimated Time:"<<hidding_intervals[i]->time_estimated<< "us" <<std::endl;
     }
-    std::cout<<"_______________________________________________________________"<<std::endl;
+    std::cout<<"_____________________________________________________________________________"<<std::endl;
     
 }
 

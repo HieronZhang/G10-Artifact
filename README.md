@@ -35,28 +35,29 @@ make clean && make
 This section describes the steps to how to configure and run the profiling of one static DNN model. We will use OPT-1.3 (batch_size=4) as an example.
 
 ### 2.1 Gnenrating Configuration Files
-The first step is to generate appropriate config files (for profiling). We provide an example config file `src/configs/OPT_1.3/4-profile.config`:
+The first step is to generate appropriate config files. We provide an example config file `src/configs/ResNet50/64-profile_analysis.config`:
 
 ```bash
-output_folder           ../results/OPT_1.3/cudnn4         
-is_profiling            1
+output_folder           ../results/ResNet50/pytorch64
+is_pytorch              1
+is_profiling            1    
 
-trans_borden            355
-batch_size              4
-seq_len                 128
+nn_model_input_forward    ../frontend/Pytorch_ResNet50/fx_graph_transformed_forward.py
+nn_model_input_backward    ../frontend/Pytorch_ResNet50/fx_graph_transformed_backward.py
+nn_model_input_weight    ../frontend/Pytorch_ResNet50/fx_graph_transformed_weight.py
 
-nn_model_input_file     ../frontend/Nets/OPT_1.3.txt
+GPU_memory_size_GB        40
 ```
 
-For profiling, please keep `is_profiling` as 1. The `output_folder` is where you want to store the profiling results.
+If you need to profile first, please keep `is_profiling` as 1. The `output_folder` is where you want to store the profiling results.
 
 
 ### 2.2 Launching the Profiling
 
-To launch the profiling, directly find its corresponding config file and use `tensor_liveness_analysis` to run it:
+To launch the tool, directly use the corresponding config file and use `tensor_liveness_analysis` to run it:
 ```bash
 ./tensor_liveness_analysis "$relative_path_to_config_file"
-    # e.g.,  ./tensor_liveness_analysis configs/OPT_1.3/4-profile.config
+    # e.g.,  ./tensor_liveness_analysis configs/ResNet50/64-profile_analysis.config
 ```
 
 You will see all the profiling results in the `output_folder`.

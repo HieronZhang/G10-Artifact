@@ -81,6 +81,7 @@ class CUDAKernel {
                                 std::vector<Tensor*> &weights,
                                 std::vector<Tensor*> &intermediates) const;
         void print();
+        void aten_print();
 };
 
 
