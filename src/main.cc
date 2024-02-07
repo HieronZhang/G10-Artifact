@@ -317,9 +317,9 @@ void loadKernelTimes() {
         Assert(exe_time_ms_str != "");
         Assert(unit == "ms");
         exe_time_cycle = std::stod(exe_time_ms_str) * GPU_frequency_Hz / 1000.0;
-        delta_execution_time = exe_time_cycle - exe_time_cycle / kernel_speedup;
-        kernel_list[i].execution_cycles = exe_time_cycle - delta_execution_time;
-        Assert(kernel_list[i].execution_cycles > 0);
+        //delta_execution_time = exe_time_cycle - exe_time_cycle / kernel_speedup;
+        kernel_list[i].execution_cycles = exe_time_cycle;
+        //Assert(kernel_list[i].execution_cycles > 0);
         total_time += kernel_list[i].execution_cycles / GPU_frequency_Hz * 1000;
         total_time_cycle += exe_time_cycle;
         // // read in input_pf execution time from file
@@ -647,7 +647,7 @@ int main(int argc, char *argv[]) {
         orig_kernel_time_file = "time_dict.txt";
         pytorch_profile_codegen("codegen.py");
         iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
-        system("python3 codegen.py");
+        // system("python3 codegen.py");
     }
     
 
@@ -979,7 +979,7 @@ int main(int argc, char *argv[]) {
 
         motiv_2.close();
 
-        return 0;
+        //return 0;
         
         
         /***********************************Getting Motivation Number   End***************************************/
@@ -1028,9 +1028,9 @@ int main(int argc, char *argv[]) {
 
         if (is_pytorch_frontend == 1)
         {
-            pytorch_profile_codegen("codegen.py");
-            iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
-            system("python3 codegen.py");
+            // pytorch_profile_codegen("codegen.py");
+            // iprintf("Generating pytorch profiling code -- Pytorch Mode\n", "");
+            // system("python3 codegen.py");
         }
         else{
             is_cudnn = true;
