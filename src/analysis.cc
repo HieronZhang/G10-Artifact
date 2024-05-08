@@ -102,7 +102,12 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
     bool is_squeeze = false;
     CUDAKernel* this_kernel;
 
-    if (!is_getitem)
+    if (op_str.find("torch.ops.prims.inductor_seeds.default")!=string::npos || op_str.find("torch.ops.prims.inductor_lookup_seed.default")!=string::npos)
+    {
+        return 0;
+    }
+
+    if (!is_getitem && op_str.find("torch.ops.prims.inductor_random.default")==string::npos)  //Only one output tensor 
     {
         size_t openingParenthesisPos = op_str.find('(');
 
@@ -175,6 +180,7 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
         }
 
         //vector<Aten_tensor*> input_tensors;
+        //TODO: One additional case to consider: [input1, input2, ...]
         for (const auto& arg : arguments_list) {
             if (aten_tensors.find(arg)!=aten_tensors.end())
             {
@@ -183,8 +189,59 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
                 this_kernel->aten_inputs.push_back(aten_tensors[arg]);
                 this_kernel->inputs.insert(aten_tensors[arg]->actual_tensor);
             }
+            else if (arg[0]=='[')
+            {
+                std::string b_arg = arg;
+                size_t pos = b_arg.find('[');
+                string tensor_list_str = b_arg.substr(pos+1);
+                Assert(tensor_list_str[tensor_list_str.size()-1]==']');
+                pos = tensor_list_str.find(']');
+                tensor_list_str = tensor_list_str.substr(0, pos);
+                std::stringstream t_list_in(tensor_list_str);
+                if (tensor_list_str=="")
+                {
+                    std::cout<<"Filling value OP"<<std::endl;
+                    // exit(1);
+                }
+                else
+                {
+                    bool is_last_one = false;
+                    while (true)
+                    {
+                        std::string term;
+                        t_list_in >> term;
+                        if(term[term.size()-1]!=','){
+                            is_last_one = true;
+                        }else
+                        {
+                            size_t pos = term.find(',');
+                            term = term.substr(0, pos);   //throw out ','
+                        }
+                        
+                        if (aten_tensors.find(term)!=aten_tensors.end())
+                        {
+                            //input_tensors.push_back(aten_tensors[term]);
+                            std::cout<<"Input tensor: "<<term<<std::endl;
+                            this_kernel->aten_inputs.push_back(aten_tensors[term]);
+                            this_kernel->inputs.insert(aten_tensors[term]->actual_tensor);
+                        }
+                        if (is_last_one)
+                        {
+                            break;
+                        }
+                        
+                    }
+                    
+                }
+                
+                
+            }
         }
-    }else
+    }
+    // else if(op_str.find("torch.ops.prims.inductor_random.default")!=string::npos){
+    //     this kernel
+    // }
+    else
     {
         this_kernel = &(kernel_list[kernel_list.size()-1]);
     }
@@ -300,8 +357,11 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
                 new_aten_tensor->dims[i] = dimensions[i];
             }
             aten_tensors[tensor_name] = new_aten_tensor;
-            this_kernel->aten_outputs.push_back(new_aten_tensor);
-            this_kernel->outputs.insert(new_aten_tensor->actual_tensor);
+
+            if(op_str.find("torch.ops.prims.inductor_random.default")==string::npos){
+                this_kernel->aten_outputs.push_back(new_aten_tensor);
+                this_kernel->outputs.insert(new_aten_tensor->actual_tensor);
+            }
         }
         else
         {
@@ -330,7 +390,6 @@ int Process_one_aten_line(string tensor_str, string op_str, bool is_getitem){
         return 0;
     }
 }
-
 
 
 void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_filename){
@@ -376,6 +435,9 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
             }
             else if(line.size() >= 6 && line.compare(0, 5, "copy_") == 0){
                 continue;
+            }
+            else if(line.size() >= 18 && line.compare(0, 17, "_unsafe_index_put") == 0){
+                continue;  //TODO: Important! fixme! pytorch bug in torch 2.2.2
             }
             else if (line.size() >= 8 && line.compare(0, 7, "getitem") == 0)
             {
@@ -474,6 +536,9 @@ void pytorch_fxgraph_parse(std::string forward_filename, std::string backward_fi
             }
             else if(line.size() >= 6 && line.compare(0, 5, "copy_") == 0){
                 continue;
+            }
+            else if(line.size() >= 18 && line.compare(0, 17, "_unsafe_index_put") == 0){
+                continue;  //TODO: Important! fixme! pytorch bug in torch 2.2.2
             }
             else if (line.size() >= 8 && line.compare(0, 7, "getitem") == 0)
             {
@@ -715,7 +780,7 @@ static string get_torch_element_type_str(string element_type){
     }
     else if (element_type == "b8")
     {
-        return "torch.uint8";  // b8 seems to boolean type and occupies 8-bit storage
+        return "torch.bool";  // b8 seems to boolean type and occupies 8-bit storage
     }
     else
     {
@@ -762,6 +827,18 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
 
         // First allocate input/outputs
         std::unordered_set<Aten_tensor *> deduplicate_inputs(this_op.aten_inputs.begin(), this_op.aten_inputs.end());
+
+        bool is_embedding = this_op.op_name.find("torch.ops.aten.embedding.default") != string::npos;
+        long embedding_size = 0;
+        if (is_embedding)
+        {
+            // std::cout<<"Embedding OP: "<<this_op.op_name<<std::endl;
+            // std::cout<<"First input tensor: "<<this_op.aten_inputs[0]->t_name<<std::endl;
+            // exit(0);
+            embedding_size = this_op.aten_inputs[0]->dims[0];
+        }
+        
+
         for (auto input : deduplicate_inputs)
         {
             // # Input: @input->t_name  #Dim: @input->actual_tensor->element_type[@input->dims]
@@ -783,8 +860,18 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
             // @input->t_name = torch.randint(0, 100, @input->dims, dtype=@torch_element_type).to("cuda")
             if (torch_element_type.find("int") != string::npos)
             {
-                gen << input->t_name << " = torch.randint(0, 100, [";
-            } else {
+                if (is_embedding)
+                {
+                    gen << input->t_name << " = torch.randint(0, "<<embedding_size<<", [";
+                }else
+                {
+                    gen << input->t_name << " = torch.randint(0, 100, [";
+                }
+            } else if(torch_element_type.find("bool") != string::npos)
+            {
+                gen << input->t_name << " = torch.randint(0, 2, [";
+            }
+            else {
                 gen << input->t_name << " = torch.randn([";
             }
 
@@ -847,10 +934,10 @@ void pytorch_profile_codegen(string gen_file, unsigned int iter){
         }
 
         // assert "@output" not in time_dict, f"Error: tensor {output} already in time_dict"
-        gen << "assert \"" << output_name << "\" not in time_dict, f\"Error: tensor " << output_name << " already in time_dict\"" << std::endl;
+        gen << "assert \"" << output_name + "_" <<this_op.kernel_id << "\" not in time_dict, f\"Error: tensor " << output_name << " already in time_dict\"" << std::endl;
 
         // time_dict[@output_name] = (t1 - t0) / iter * 1000
-        gen << "time_dict[\"" << output_name << "\"] = (t1 - t0) / " << iter << " * 1000" << std::endl;
+        gen << "time_dict[\"" << output_name + "_" <<this_op.kernel_id << "\"] = (t1 - t0) / " << iter << " * 1000" << std::endl;
         gen << std::endl;
 
     }

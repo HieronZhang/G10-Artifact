@@ -1,0 +1,10 @@
+output_folder           ../results/Mobilev3small/pytorch64
+is_pytorch              1
+is_profiling            1 
+is_simulation           1   
+
+nn_model_input_forward    ../frontend/Pytorch_mobilev3small/fx_graph_transformed_forward.py
+nn_model_input_backward    ../frontend/Pytorch_mobilev3small/fx_graph_transformed_backward.py
+nn_model_input_weight    ../frontend/Pytorch_mobilev3small/fx_graph_transformed_weight.py
+
+GPU_memory_size_GB        40
