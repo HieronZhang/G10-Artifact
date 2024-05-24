@@ -321,6 +321,7 @@ class Tensor
         Tensor();
     public:
         Tensor(long long size, bool glob = false);
+        Tensor(long long size, int tensor_ID, bool glob = false);
         unsigned long getGlobalOffset();
         std::string name() const;
         bool is_alive(int current_kernel) const;

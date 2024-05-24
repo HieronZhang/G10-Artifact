@@ -64,6 +64,10 @@ extern int prefetch_degree;
 extern int num_candidate;
 extern double system_latency_us; // NOT USED FOR NOW
 
+//FN migration plan output
+extern std::ofstream migration_plan_output;
+
+
 // Other param
 //   In codegen, is_UVM specifies whether to use cudaMallocManaged
 //   In simulation, is_UVM specifies whether setup is ideal (i.e. all tensor in GPU mem)
@@ -562,6 +566,16 @@ int main(int argc, char *argv[]) {
 
     SetupOutputFolder();
 
+
+    parse_temperal("test.in");
+
+    migration_plan_output.open("migration_plan.txt");
+
+    // return 0;
+
+    //Comments will start from here
+    /*
+
     if (is_transformer==1)
     {
         transformer_parse(nn_model_input_file.c_str());
@@ -584,6 +598,7 @@ int main(int argc, char *argv[]) {
 
 
     printf("\n");
+    
 
     if (!is_simulation) {
         // tensor info
@@ -620,6 +635,7 @@ int main(int argc, char *argv[]) {
     // for (size_t i = 0; i < kernel_list.size(); i++) {
     //     kernel_list[i].print();
     // }
+    */
 
     nprintf("Global Memory amount: %lld B\n", memory_offset_weights);
     nprintf("Total Memory spend in 1 iteration: %lld B\n", memory_offset_intermediate);
@@ -629,22 +645,28 @@ int main(int argc, char *argv[]) {
     printf("\n");
     if (is_simulation) {
 
+    /*
         loadKernelTimes();
 
         loadWorkspaceSizes();
+        */
         // tensor info
         r = new RedirStdOut("tensors.config");
         for (size_t i = 0; i < tensor_list.size(); i++) {
             tensor_list[i]->print();
         }
         delete r;
-
+        
         // kernel info
         r = new RedirStdOut("kernels.config");
         for (size_t i = 0; i < kernel_list.size(); i++) {
             kernel_list[i].print();
         }
         delete r;
+
+        //COmments will end here
+
+
 
         nprintf("Global Memory amount: %lld B\n", memory_offset_weights);
         nprintf("Total Memory spend in 1 iteration: %lld B\n", memory_offset_intermediate);
@@ -793,6 +815,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             
+            migration_plan_output.close();
             
             return 0;
         }

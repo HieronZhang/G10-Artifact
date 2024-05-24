@@ -53,6 +53,9 @@ std::vector<Hidding_Interval*> offloeded_local_intervals;
 std::priority_queue<fl_pending_event, std::vector<fl_pending_event>, Fl_event_less> fl_pending_event_queue;
 
 
+//FN migration plan output
+std::ofstream migration_plan_output;
+
 // extern const std::string print_pagelocation_array[5];
 
 Model_Layer::Model_Layer(){
@@ -391,6 +394,31 @@ Tensor::Tensor(long long size, bool glob) {
         size_in_byte = N_pages * 4096;
     }
 }
+
+
+Tensor::Tensor(long long size, int tensor_ID, bool glob){
+    tensor_id = tensor_ID;
+    size_in_byte = size;
+    raw_size_byte = size;
+    is_global_weight = glob;
+    if (glob)
+    {
+        address_offset = memory_offset_weights;
+        //page-level alignment
+        long N_pages = (size % 4096 == 0) ? (size / 4096) : ((size / 4096) + 1);
+        memory_offset_weights += N_pages * 4096;
+        size_in_byte = N_pages * 4096;
+    }
+    else
+    {
+        address_offset = memory_offset_intermediate;
+        //page-level alignment
+        long N_pages = (size % 4096 == 0) ? (size / 4096) : ((size / 4096) + 1);
+        memory_offset_intermediate += N_pages * 4096;
+        size_in_byte = N_pages * 4096;
+    }
+}
+
 
 unsigned long Tensor::getGlobalOffset() {
     return address_offset + (is_global_weight ? 0 : memory_offset_weights);
@@ -926,6 +954,14 @@ CUDAKernel::CUDAKernel(CUDAKernelType t, Model_OP* op){
 }
 
 
+CUDAKernel::CUDAKernel(CUDAKernelType t, int id, long exe_time_ns){
+    kernel_id = id;
+    kernel_index++;
+    type = t;
+    execution_cycles = (long) (GPU_frequency_GHz * exe_time_ns);
+}
+
+
 void CUDAKernel::print(){
     std::cout<<"Kernel ID: "<<kernel_id<<", "<< "Name: "<<print_kerneltype_array[type]<<std::endl;
     if (this->parent_layer)
@@ -980,7 +1016,7 @@ void CUDAKernel::print(){
     }
     else
     {
-         std::cout<<"Parent OP ID:"<<parent_op->op_id<<"; Name: "<<parent_op->type<<std::endl;
+        //  std::cout<<"Parent OP ID:"<<parent_op->op_id<<"; Name: "<<parent_op->type<<std::endl;
     }
     
     
@@ -4305,7 +4341,7 @@ int FlashNeuron_simulator::serve_one_pending_event(int kernel_event_id){
 }
 
 
-void FlashNeuron_simulator::check_fetch_allocation(){
+void FlashNeuron_simulator::check_fetch_allocation(int kernel_id){
 
     if (fetch_allocate_waiting_queue.empty())
     {
@@ -4357,6 +4393,8 @@ void FlashNeuron_simulator::check_fetch_allocation(){
             fl_fetch_queue.push(pre_fetch);
             this->total_fetch_byte += pre_fetch.tensor->size_in_byte;
             std::cout<<"Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+            migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<kernel_id<<std::endl;
+            migration_plan_output<<kernel_id<<" "<<pre_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
             if (!fl_fetch_queue.front().is_happening)
             {
@@ -4403,7 +4441,7 @@ void FlashNeuron_simulator::run(){
         std::cout<<"Allocating space for global tensors..."<<std::endl;
         for (int i = 0; i < tensor_list.size(); i++)
         {
-            if (tensor_list[i]->is_global_weight)
+            if (tensor_list[i]->is_global_weight && tensor_list[i]->size_in_byte > 0)
             {
                 int allo = mem_manager.alloc_from_left(tensor_list[i]);
                 Assert(allo==0);
@@ -4417,7 +4455,7 @@ void FlashNeuron_simulator::run(){
         long max_size = 0;
         for (int i = 0; i < tensor_list.size(); i++)
         {
-            if (!tensor_list[i]->is_global_weight && tensor_list[i]->live_interval[1]==-1)
+            if (!tensor_list[i]->is_global_weight && tensor_list[i]->live_interval[1]==-1 && tensor_list[i]->size_in_byte > 0)
             {
                 if (tensor_list[i]->size_in_byte > max_size)
                 {
@@ -4440,12 +4478,12 @@ void FlashNeuron_simulator::run(){
         std::cout<<"Allocating space for keep-on-GPU tensors..."<<std::endl;
         for (int i = 0; i < tensor_list.size(); i++)
         {
-            if (tensor_list[i]->is_global_weight && !tensor_list[i]->is_choosed_to_evict)
+            if (tensor_list[i]->size_in_byte > 0 && tensor_list[i]->is_global_weight && !tensor_list[i]->is_choosed_to_evict)
             {
                 int allo = mem_manager.alloc_from_left(tensor_list[i]);
                 Assert(allo==0);
             }
-            else if (tensor_list[i]->is_global_weight)
+            else if (tensor_list[i]->size_in_byte > 0 && tensor_list[i]->is_global_weight)
             {
                 int allo = mem_manager.alloc_from_right(tensor_list[i]);
                 Assert(allo==0);
@@ -4498,6 +4536,9 @@ void FlashNeuron_simulator::run(){
                         fl_offload_queue.push_back(offload_event);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
+                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
+
                         if (!fl_offload_queue.front().is_happening)
                         {
                             fl_offload_queue.front().is_happening = true;
@@ -4547,6 +4588,8 @@ void FlashNeuron_simulator::run(){
                         fl_offload_queue.push_back(offload_event);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
+                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
                         if (!fl_offload_queue.front().is_happening)
                         {
                             fl_offload_queue.front().is_happening = true;
@@ -4571,6 +4614,8 @@ void FlashNeuron_simulator::run(){
                         cpu_tensors.insert(fl_offload_queue_cpu.back().tensor);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
+                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
                         if (!fl_offload_queue_cpu.front().is_happening)
                         {
                             fl_offload_queue_cpu.front().is_happening = true;
@@ -4593,7 +4638,7 @@ void FlashNeuron_simulator::run(){
                             fetch_allocate_waiting_queue.push(fw);
                             fetch_allocate_waiting_tensors.insert(fw.tensor);
                             std::cout<<"Inserted Waiting Prefetch: "<<fw.tensor->name()<<std::endl;
-                            this->check_fetch_allocation();
+                            this->check_fetch_allocation(i);
                         }
                         movement_list_index++;
                     }
@@ -4662,6 +4707,8 @@ void FlashNeuron_simulator::run(){
                                     fl_fetch_queue.push(on_d_fetch);
                                     this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                     std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+                                    migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                    migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                     if (!fl_fetch_queue.front().is_happening)
                                     {
@@ -4702,6 +4749,8 @@ void FlashNeuron_simulator::run(){
                                     fl_fetch_queue.push(on_d_fetch);
                                     this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                     std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+                                    migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                    migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                     if (!fl_fetch_queue.front().is_happening)
                                     {
@@ -4775,12 +4824,12 @@ void FlashNeuron_simulator::run(){
                 {
                     if (fetch_allocate_waiting_tensors.find(tttensor)!=fetch_allocate_waiting_tensors.end()) //This tensor is waiting for allocate
                     {
-                        check_fetch_allocation();
+                        check_fetch_allocation(i);
                         while (!fl_pending_event_queue.empty())
                         {
                             int serve = this->serve_one_pending_event(0);
                             Assert(serve!=2);
-                            check_fetch_allocation();
+                            check_fetch_allocation(i);
                             if (tttensor->f_is_allocated_on_GPU)
                             {
                                 break;
@@ -4805,7 +4854,7 @@ void FlashNeuron_simulator::run(){
                                 int alloc_try = mem_manager.alloc_from_right(tttensor);
                                 if (alloc_try==0)
                                 {
-                                    check_fetch_allocation();
+                                    check_fetch_allocation(i);
                                     break;
                                 }
                             }
@@ -4828,6 +4877,8 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(on_d_fetch);
                                 this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                 std::cout<<"Fetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+                                migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
                                 {
@@ -4842,7 +4893,7 @@ void FlashNeuron_simulator::run(){
                                 while (!fl_pending_event_queue.empty())
                                 {
                                     int serve = this->serve_one_pending_event(0);
-                                    check_fetch_allocation();
+                                    check_fetch_allocation(i);
                                     Assert(serve!=2);
                                     if (tttensor->f_is_fetching==false && tttensor->f_is_allocated_on_GPU)
                                     {
@@ -4869,6 +4920,8 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(on_d_fetch);
                                 this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                 std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+                                migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
                                 {
@@ -4883,7 +4936,7 @@ void FlashNeuron_simulator::run(){
                                 while (!fl_pending_event_queue.empty())
                                 {
                                     int serve = this->serve_one_pending_event(0);
-                                    check_fetch_allocation();
+                                    check_fetch_allocation(i);
                                     Assert(serve!=2);
                                     if (tttensor->f_is_fetching==false && tttensor->f_is_allocated_on_GPU)
                                     {
@@ -4908,7 +4961,7 @@ void FlashNeuron_simulator::run(){
                                 int alloc_try = mem_manager.alloc_from_left(tttensor);
                                 if (alloc_try==0)
                                 {
-                                    check_fetch_allocation();
+                                    check_fetch_allocation(i);
                                     break;
                                 }
                             }
@@ -4926,7 +4979,7 @@ void FlashNeuron_simulator::run(){
                     while (!fl_pending_event_queue.empty())
                     {
                         int serve = this->serve_one_pending_event(0);
-                        check_fetch_allocation();
+                        check_fetch_allocation(i);
                         Assert(serve!=2);
                         if (tttensor->f_is_fetching==false)
                         {
@@ -4949,7 +5002,7 @@ void FlashNeuron_simulator::run(){
                 //         while (!fl_pending_event_queue.empty())
                 //         {
                 //             int serve = this->serve_one_pending_event(0);
-                //             check_fetch_allocation();
+                //             check_fetch_allocation(i);
                 //             Assert(serve!=2);
                 //             bool is_offloading = false;
                 //             for (auto it : fl_offload_queue)
@@ -4987,7 +5040,7 @@ void FlashNeuron_simulator::run(){
                 //         while (!fl_pending_event_queue.empty())
                 //         {
                 //             int serve = this->serve_one_pending_event(0);
-                //             check_fetch_allocation();
+                //             check_fetch_allocation(i);
                 //             Assert(serve!=2);
                 //             bool is_offloading_cpu = false;
                 //             for (auto it : fl_offload_queue_cpu)
@@ -5034,7 +5087,7 @@ void FlashNeuron_simulator::run(){
         while (!fl_pending_event_queue.empty())
         {
             int serve = serve_one_pending_event(kernel.event_id);
-            check_fetch_allocation();
+            check_fetch_allocation(i+1);
             if (serve==2)
             {
                 std::cout<<"Kernel no."<<i<<" "<<print_kerneltype_array[kernel_list[i].type]<<" has finished execution!"<<std::endl;
@@ -5064,7 +5117,7 @@ void FlashNeuron_simulator::run(){
                     }
                 }
             }
-            check_fetch_allocation();
+            check_fetch_allocation(i+1);
         }
         
         
@@ -5101,6 +5154,8 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(pre_fetch);
                                 this->total_fetch_byte += pre_fetch.tensor->size_in_byte;
                                 std::cout<<"Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<std::endl;
+                                migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                migration_plan_output<<i<<" "<<pre_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
                                 {
@@ -5138,6 +5193,150 @@ void FlashNeuron_simulator::run(){
     this->total_time_breakdown_stall = this->total_sim_time - ideal_exe_time;
     this->total_time_breakdown_overlap = this->total_trasfer_time - this->total_time_breakdown_stall;
     this->total_time_breakdown_exe = ideal_exe_time - this->total_time_breakdown_overlap;
+
+    gpu2pcie_BW_estimation.resize(0);
+
 }
+
+
+// std::vector<std::string> split(const 't'::string s, const std::string delimiter) {
+//     std::string scopy = s;
+//     std::vector<std::string> result;
+//     size_t pos = 0;
+//     std::string token;
+//     while ((pos = scopy.find(delimiter)) != std::string::npos) {
+//         token = scopy.substr(0, pos);
+//         scopy.erase(0, pos + delimiter.length());
+//         result.push_back(token);
+//     }
+//     result.push_back(scopy);
+//     return result;
+// }
+
+
+// Function to split a string by a delimiter
+std::vector<std::string> split(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+
+void parse_temperal(std::string input_file){
+    std::ifstream fin(input_file);
+    std::string line;
+    std::vector<std::string> i_tokens;
+    std::unordered_set<int> global_tensor_ids;
+    fin>>line;
+    fin>>line;
+    i_tokens = split(line, ',');
+    for (size_t i = 0; i < i_tokens.size(); i++)
+    {
+        global_tensor_ids.insert(std::stoi(i_tokens[i]));
+    }
+
+    int n_tensors;
+    fin>>n_tensors;
+
+    std::vector<std::vector<int>> tensor_activeness;
+    tensor_activeness.resize(n_tensors);
+
+    for (size_t i = 0; i < n_tensors; i++)
+    {
+        std::string line;
+        fin>>line;
+        std::cout<<line<<std::endl;
+        std::vector<std::string> i_terms = split(line, '|');
+        int tensor_id = std::stoi(i_terms[0]);
+        long size = std::stol(i_terms[1]);
+
+        std::vector<std::string> live_terms = split(i_terms[2], ',');
+        bool is_meta_tensor = false;
+        for (size_t j = 0; j < live_terms.size(); j++)
+        {
+            std::vector<std::string> activeness_terms = split(live_terms[j], ':');
+            
+            if (activeness_terms[1]!="1")
+            {
+                is_meta_tensor = true;
+            }
+            else
+            {
+                tensor_activeness[i].push_back(std::stoi(activeness_terms[0]));
+            }
+        }
+        // if (!is_meta_tensor)
+        // {
+        Tensor* new_tensor = new Tensor(size, tensor_id, global_tensor_ids.find(tensor_id)!=global_tensor_ids.end());
+        tensor_list.push_back(new_tensor);
+        std::cout<<"Tensor "<<new_tensor->tensor_id<<" has been created!"<<std::endl;
+        new_tensor->print();
+        // }
+    }
+
+    int n_kernels;
+    fin>>n_kernels;
+    vector<long> kernel_times;
+    kernel_times.resize(n_kernels);
+
+    for (size_t i = 0; i < n_kernels; i++)
+    {
+        int kernel_id;
+        fin >> kernel_id;
+        fin >> kernel_times[i];
+        // std::cout<<kernel_times[i]<<std::endl;
+    }
+
+    int make_loss_index;
+    
+    fin >> make_loss_index;
+
+
+    for (size_t i = 0; i < n_kernels; i++)
+    {
+        CUDAKernelType type;
+        if (i==make_loss_index)
+        {
+            type = CUDAKernelType::makeLoss;
+        }
+        else
+        {
+            type = CUDAKernelType::Custom;
+        }
+        kernel_list.emplace_back(type, i, kernel_times[i]);
+        // kernel_list[i].print();
+        std::cout<<kernel_list[i].execution_cycles<<std::endl;
+    }
+
+    for (size_t i = 0; i < n_tensors; i++)
+    {
+        for (size_t j = 0; j < tensor_activeness[i].size(); j++)
+        {
+            kernel_list[tensor_activeness[i][j]].outputs.insert(tensor_list[i]);
+            kernel_list[tensor_activeness[i][j]].inputs.insert(tensor_list[i]);
+            std::cout<<"Tensor "<<tensor_list[i]->tensor_id<<" is needed by kernel "<<tensor_activeness[i][j]<<std::endl;
+        }
+    }
+
+
+    for( auto it : tensor_list){
+        if (it->size_in_byte == 0)
+        {
+            std::remove(tensor_list.begin(), tensor_list.end(), it), tensor_list.end();
+        }
+    }
+
+
+    // for (size_t i = 0; i < i_tokens.size(); i++)
+    // {
+    //     std::cout<<i_tokens[i]<<std::endl;
+    // }
+    
+}
+
 
 

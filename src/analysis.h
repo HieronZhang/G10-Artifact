@@ -20,10 +20,10 @@ typedef enum {
     Scale_Forward, Scale_Backward, GatherV2_Forward, GatherV2_Backward, Add_Backward, Divide_Forward, Divide_Backward_A, Divide_Backward_B, 
     Multiply_Forward, Multiply_Backward, Power_Forward, Power_Backward, Sqrt_Forward, Sqrt_Backward, SoftmaxBasic_Forward, 
     SoftmaxBasic_Backward, Subtract_Forward, Subtract_Backward, Sum_Forward, Sum_Backward, Tanh_Forward, Tanh_Backward, 
-    BatchMatMul_Forward, BatchMatMul_Backward, Apply_Grad, Erf_Forward, Erf_Backward
+    BatchMatMul_Forward, BatchMatMul_Backward, Apply_Grad, Erf_Forward, Erf_Backward, Custom
 } CUDAKernelType;
 
-const std::string print_kerneltype_array [54] = {
+const std::string print_kerneltype_array [55] = {
     "Conv2d_Forward", "ReLU_Forward", "MaxPool2d_Forward", "AdaptiveAvgPool2d_Forward", "Linear_Forward", 
     "Dropout_Forward", "BatchNorm2d_Forward", "Conv2d_Backward_Weight", "Conv2d_Backward_Input", "Conv2d_Apply_Grad",
     "ReLU_Backward", "MaxPool2d_Backward", "AdaptiveAvgPool2d_Backward", "Linear_Backward_Weight", "Linear_Backward_Input", 
@@ -32,7 +32,7 @@ const std::string print_kerneltype_array [54] = {
     "Scale_Forward", "Scale_Backward", "GatherV2_Forward", "GatherV2_Backward", "Add_Backward", "Divide_Forward", "Divide_Backward_A", "Divide_Backward_B", 
     "Multiply_Forward", "Multiply_Backward", "Power_Forward", "Power_Backward", "Sqrt_Forward", "Sqrt_Backward", "SoftmaxBasic_Forward", 
     "SoftmaxBasic_Backward", "Subtract_Forward", "Subtract_Backward", "Sum_Forward", "Sum_Backward", "Tanh_Forward", "Tanh_Backward", 
-    "BatchMatMul_Forward", "BatchMatMul_Backward", "Apply_Grad", "Erf_Forward", "Erf_Backward"
+    "BatchMatMul_Forward", "BatchMatMul_Backward", "Apply_Grad", "Erf_Forward", "Erf_Backward", "Custom"
 };
 
 enum Eviction_P {
@@ -64,6 +64,8 @@ class CUDAKernel {
 
         CUDAKernel(CUDAKernelType t, Model_Layer* layer);
         CUDAKernel(CUDAKernelType t, Model_OP* op_layer);
+        CUDAKernel(CUDAKernelType t, int id, long exe_time_ns);
+
         void getRequiredTensors(std::vector<Tensor*> &required_tensors) const;
         void getRequiredTensors(std::unordered_set<Tensor*> &required_tensors) const;
         void getRequiredTensors(std::vector<Tensor*> &required_tensors,
@@ -187,7 +189,7 @@ class FlashNeuron_simulator{
 
         // return 0 for success, return 1 for failure, return 2 for stalled by kernel
         int serve_one_pending_event(int kernel_event_id);
-        void check_fetch_allocation();
+        void check_fetch_allocation(int kernel_id);
 };
 
 //Transformers:
@@ -227,7 +229,9 @@ void print_GPU_mem_estimation();
 
 void print_GPU_mem_really_in_use();
 
+std::vector<std::string> stringSplit(const std::string s, const std::string delimiter);
 
+void parse_temperal(std::string input_file);
 
 
 
