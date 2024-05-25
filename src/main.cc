@@ -542,7 +542,7 @@ int main(int argc, char *argv[]) {
 
     // parameter validation
     if (is_simulation) {
-        SimulationParamSanityCheck();
+        // SimulationParamSanityCheck();
     } else {
         if (is_input_pf_only) Assert(is_UVM);
     }
@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
     SetupOutputFolder();
 
 
-    parse_temperal("test.in");
+    parse_temperal("semantics.in");
 
     migration_plan_output.open("migration_plan.txt");
 

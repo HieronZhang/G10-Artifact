@@ -7,7 +7,7 @@
 
 # Set the default target. When you make with no arguments,
 # this will be the target built.
-COMPILER = gpg
+COMPILER = g10-algorithm
 # PREPROCESSOR = dpp
 # PREPROCESSOR = dpp
 PRODUCTS = $(COMPILER) 

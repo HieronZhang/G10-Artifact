@@ -4393,7 +4393,7 @@ void FlashNeuron_simulator::check_fetch_allocation(int kernel_id){
             fl_fetch_queue.push(pre_fetch);
             this->total_fetch_byte += pre_fetch.tensor->size_in_byte;
             std::cout<<"Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-            migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<kernel_id<<std::endl;
+            // migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<kernel_id<<std::endl;
             migration_plan_output<<kernel_id<<" "<<pre_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
             if (!fl_fetch_queue.front().is_happening)
@@ -4536,7 +4536,7 @@ void FlashNeuron_simulator::run(){
                         fl_offload_queue.push_back(offload_event);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
-                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        // migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                         migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
 
                         if (!fl_offload_queue.front().is_happening)
@@ -4588,7 +4588,7 @@ void FlashNeuron_simulator::run(){
                         fl_offload_queue.push_back(offload_event);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
-                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        // migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                         migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
                         if (!fl_offload_queue.front().is_happening)
                         {
@@ -4614,7 +4614,7 @@ void FlashNeuron_simulator::run(){
                         cpu_tensors.insert(fl_offload_queue_cpu.back().tensor);
                         this->total_offload_byte += offload_event.tensor->size_in_byte;
                         std::cout<<"Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<std::endl;
-                        migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                        // migration_plan_output<<"#Offloading event for tensor "<< offload_event.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                         migration_plan_output<<i<<" "<<offload_event.tensor->tensor_id<<" "<<"21:0"<<std::endl;
                         if (!fl_offload_queue_cpu.front().is_happening)
                         {
@@ -4707,7 +4707,7 @@ void FlashNeuron_simulator::run(){
                                     fl_fetch_queue.push(on_d_fetch);
                                     this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                     std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-                                    migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                    // migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                                     migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                     if (!fl_fetch_queue.front().is_happening)
@@ -4749,7 +4749,7 @@ void FlashNeuron_simulator::run(){
                                     fl_fetch_queue.push(on_d_fetch);
                                     this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                     std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-                                    migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                    // migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                                     migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                     if (!fl_fetch_queue.front().is_happening)
@@ -4877,7 +4877,7 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(on_d_fetch);
                                 this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                 std::cout<<"Fetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-                                migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                // migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                                 migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
@@ -4920,7 +4920,7 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(on_d_fetch);
                                 this->total_fetch_byte += on_d_fetch.tensor->size_in_byte;
                                 std::cout<<"Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-                                migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                // migration_plan_output<<"#Prefetching event for tensor "<< on_d_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                                 migration_plan_output<<i<<" "<<on_d_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
@@ -5154,7 +5154,7 @@ void FlashNeuron_simulator::run(){
                                 fl_fetch_queue.push(pre_fetch);
                                 this->total_fetch_byte += pre_fetch.tensor->size_in_byte;
                                 std::cout<<"Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<std::endl;
-                                migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
+                                // migration_plan_output<<"#Prefetching event for tensor "<< pre_fetch.tensor->name()<<" Scheduled!"<<" at kernel id: "<<i<<std::endl;
                                 migration_plan_output<<i<<" "<<pre_fetch.tensor->tensor_id<<" "<<"1:0"<<std::endl;
 
                                 if (!fl_fetch_queue.front().is_happening)
