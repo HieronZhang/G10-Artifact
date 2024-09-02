@@ -1781,6 +1781,8 @@ void tensor_first_pass_liveness_analysis(){
     for (int i = 0; i < tensor_num; i++)
     {
         Tensor* current_tensor =  tensor_list[i];
+        current_tensor->live_interval[0] = -1;
+        current_tensor->live_interval[1] = -1;
         if (!current_tensor->is_global_weight) // This tensor is a local one
         {
             // First we need to find its death time:
@@ -1834,6 +1836,11 @@ void tensor_second_pass_interval_formation(){
     for (int i = 0; i < tensor_num; i++)
     {
         Tensor* current_tensor = tensor_list[i];
+        if (current_tensor->live_interval[0]==-1)
+        {
+            continue;
+        }
+        
         if (!current_tensor->is_global_weight)
         {
             if (current_tensor->live_interval[1]!=-1)
@@ -5282,13 +5289,15 @@ void parse_temperal(std::string input_file){
     fin>>n_kernels;
     vector<long> kernel_times;
     kernel_times.resize(n_kernels);
+    double gar;
 
     for (size_t i = 0; i < n_kernels; i++)
     {
         int kernel_id;
         fin >> kernel_id;
         fin >> kernel_times[i];
-        // std::cout<<kernel_times[i]<<std::endl;
+        fin >> gar;
+        std::cout<<"Kernel "<<i<<" exe time: "<<kernel_times[i]<<std::endl;
     }
 
     int make_loss_index;

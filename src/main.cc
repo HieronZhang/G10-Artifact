@@ -935,6 +935,9 @@ int main(int argc, char *argv[]) {
         motiv_1.close();
 
         filenaeme = argv1+"_TensorPeriodLog.py";
+        // double sd_buffer[500];
+        // int buffer_count = 0;
+
         std::ofstream motiv_2(filenaeme);
         motiv_2 << "sd_size = [";
         for (int i = 0; i < interval_list.size(); i++)
@@ -946,8 +949,21 @@ int main(int argc, char *argv[]) {
         motiv_2 << "sd_time = [";
         for (int i = 0; i < interval_list.size(); i++)
         {
-            motiv_2<<interval_list[i]->time_estimated;
-            motiv_2<<", ";
+            // if (interval_list[i]->time_estimated < 500)
+            // {
+            //     if (buffer_count < 500)
+            //     {
+            //         sd_buffer[buffer_count] = interval_list[i]->time_estimated;
+            //         buffer_count++;
+            //         motiv_2<<interval_list[i]->time_estimated;
+            //         motiv_2<<", ";
+            //     }
+            // }
+            // else
+            // {
+                motiv_2<<interval_list[i]->time_estimated;
+                motiv_2<<", ";
+            // }
         }
         motiv_2<<"]\n";
         motiv_2 << "# ";
@@ -963,6 +979,7 @@ int main(int argc, char *argv[]) {
         
 /***********************************Getting Motivation Number   End***************************************/
 
+        return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);
