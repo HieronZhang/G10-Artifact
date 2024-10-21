@@ -1836,7 +1836,7 @@ void tensor_second_pass_interval_formation(){
     for (int i = 0; i < tensor_num; i++)
     {
         Tensor* current_tensor = tensor_list[i];
-        if (current_tensor->live_interval[0]==-1)
+        if (current_tensor->live_interval[0]==-1 && !current_tensor->is_global_weight)
         {
             continue;
         }
@@ -2707,30 +2707,118 @@ void pcie2gpu_BWsim(long tensor_size, int fetch_index){
 
 
 void print_BW_estimations(){
-    std::cout<<"----------------------------------------------------"<<std::endl;
-    std::cout<<"SSD2GPU BW estimation:"<<std::endl;
+    // std::cout<<"----------------------------------------------------"<<std::endl;
+    // std::cout<<"SSD2GPU BW estimation:"<<std::endl;
+    // for (int i = 0; i < kernel_list.size(); i++)
+    // {
+    //     std::cout<<"KernelID: "<<i<<"*** Status(full): "<<ssd2gpu_BW_estimation[i].full<<", Estimation: "<<ssd2gpu_BW_estimation[i].estimation<<", Capacity: "<<ssd2gpu_BW_estimation[i].capacity<<";"<<std::endl;
+    // }
+    // std::cout<<"----------------------------------------------------"<<std::endl;
+    // std::cout<<"GPU2SSD BW estimation:"<<std::endl;
+    // for (int i = 0; i < kernel_list.size(); i++)
+    // {
+    //     std::cout<<"KernelID: "<<i<<"*** Status(full): "<<gpu2ssd_BW_estimation[i].full<<", Estimation: "<<gpu2ssd_BW_estimation[i].estimation<<", Capacity: "<<gpu2ssd_BW_estimation[i].capacity<<";"<<std::endl;
+    // }
+    // std::cout<<"----------------------------------------------------"<<std::endl;
+    // std::cout<<"GPU2PCIE BW estimation:"<<std::endl;
+    // for (int i = 0; i < kernel_list.size(); i++)
+    // {
+    //     std::cout<<"KernelID: "<<i<<"*** Status(full): "<<gpu2pcie_BW_estimation[i].full<<", Estimation: "<<gpu2pcie_BW_estimation[i].estimation<<", Capacity: "<<gpu2pcie_BW_estimation[i].capacity<<";"<<std::endl;
+    // }
+    // std::cout<<"----------------------------------------------------"<<std::endl;
+    // std::cout<<"PCIE2GPU BW estimation:"<<std::endl;
+    // for (int i = 0; i < kernel_list.size(); i++)
+    // {
+    //     std::cout<<"KernelID: "<<i<<"*** Status(full): "<<pcie2gpu_BW_estimation[i].full<<", Estimation: "<<pcie2gpu_BW_estimation[i].estimation<<", Capacity: "<<pcie2gpu_BW_estimation[i].capacity<<";"<<std::endl;
+    // }
+
+    // std::cout<<"SSD2GPU BW estimation:"<<std::endl;
+
+
+    long T = 1000000; //1ms
+    long current_t = 0;
+    double running_avg = 0;
+    long counter = 0;
+
+    std::cout<<"time_tick = "<<T<<std::endl;
+
+    std::cout<<"ssd2gpu_bw = [";
     for (int i = 0; i < kernel_list.size(); i++)
     {
-        std::cout<<"KernelID: "<<i<<"*** Status(full): "<<ssd2gpu_BW_estimation[i].full<<", Estimation: "<<ssd2gpu_BW_estimation[i].estimation<<", Capacity: "<<ssd2gpu_BW_estimation[i].capacity<<";"<<std::endl;
+        long t_added = current_t + kernel_list[i].execution_cycles / (GPU_frequency_GHz);
+        int current_kernel_util = int(ssd2gpu_BW_estimation[i].estimation>0);
+
+        if (t_added > T)
+        {
+            //First T
+            running_avg = (running_avg * current_t + current_kernel_util * (T - current_t))/T;
+            std::cout<<int(running_avg>0.5)<<",";
+            current_t = 0;
+            running_avg = 0;
+            t_added = t_added - T;
+            //The following several T
+            int num_T = t_added / T;
+            int rest = t_added % T;
+            for (int j = 0; j < num_T; j++)
+            {
+                std::cout<<current_kernel_util<<",";
+                counter++;
+            }
+            current_t = rest;
+            running_avg = current_kernel_util;
+        }
+        else
+        {
+            running_avg = (running_avg * current_t + current_kernel_util * (t_added - current_t)) / t_added;
+            current_t = t_added;
+        }
     }
-    std::cout<<"----------------------------------------------------"<<std::endl;
-    std::cout<<"GPU2SSD BW estimation:"<<std::endl;
+    //TODO: check!
+    std::cout<<"]"<<std::endl;
+
+    std::cout<<"time_counter = "<<counter<<std::endl;
+
+    current_t = 0;
+    running_avg = 0;
+    counter = 0;
+
+    // std::cout<<"----------------------------------------------------"<<std::endl;
+    // std::cout<<"GPU2SSD BW estimation:"<<std::endl;
+    std::cout<<"gpu2ssd_bw = [";
     for (int i = 0; i < kernel_list.size(); i++)
     {
-        std::cout<<"KernelID: "<<i<<"*** Status(full): "<<gpu2ssd_BW_estimation[i].full<<", Estimation: "<<gpu2ssd_BW_estimation[i].estimation<<", Capacity: "<<gpu2ssd_BW_estimation[i].capacity<<";"<<std::endl;
+        long t_added = current_t + kernel_list[i].execution_cycles / (GPU_frequency_GHz);
+        int current_kernel_util = int(gpu2ssd_BW_estimation[i].estimation>0);
+
+        if (t_added > T)
+        {
+            //First T
+            running_avg = (running_avg * current_t + current_kernel_util * (T - current_t))/T;
+            std::cout<<int(running_avg>0.5)<<",";
+            current_t = 0;
+            running_avg = 0;
+            t_added = t_added - T;
+            //The following several T
+            int num_T = t_added / T;
+            int rest = t_added % T;
+            for (int j = 0; j < num_T; j++)
+            {
+                std::cout<<current_kernel_util<<",";
+                counter++;
+            }
+            current_t = rest;
+            running_avg = current_kernel_util;
+        }
+        else
+        {
+            running_avg = (running_avg * current_t + current_kernel_util * (t_added - current_t)) / t_added;
+            current_t = t_added;
+        }
     }
-    std::cout<<"----------------------------------------------------"<<std::endl;
-    std::cout<<"GPU2PCIE BW estimation:"<<std::endl;
-    for (int i = 0; i < kernel_list.size(); i++)
-    {
-        std::cout<<"KernelID: "<<i<<"*** Status(full): "<<gpu2pcie_BW_estimation[i].full<<", Estimation: "<<gpu2pcie_BW_estimation[i].estimation<<", Capacity: "<<gpu2pcie_BW_estimation[i].capacity<<";"<<std::endl;
-    }
-    std::cout<<"----------------------------------------------------"<<std::endl;
-    std::cout<<"PCIE2GPU BW estimation:"<<std::endl;
-    for (int i = 0; i < kernel_list.size(); i++)
-    {
-        std::cout<<"KernelID: "<<i<<"*** Status(full): "<<pcie2gpu_BW_estimation[i].full<<", Estimation: "<<pcie2gpu_BW_estimation[i].estimation<<", Capacity: "<<pcie2gpu_BW_estimation[i].capacity<<";"<<std::endl;
-    }
+    //TODO: check!
+    std::cout<<"]"<<std::endl;
+
+    std::cout<<"time_counter = "<<counter<<std::endl;
     
 }
 
@@ -2898,7 +2986,7 @@ void scheduling_prefetch(){
     long total_mem_size = memory_offset_intermediate + memory_offset_weights + tensor_list[0]->size_in_byte;
     int kernel_num = kernel_list.size();
 
-    long target_mem_line = (long)(GPU_memory_size_GB * 1024 * 1024 * 1024) * 0.99;
+    long target_mem_line = (long)(GPU_memory_size_GB * 1024 * 1024 * 1024);
     long tolerant_line = target_mem_line * 0.7; 
     long CPU_line = (long)(CPU_memory_line_GB * 1024 * 1024 * 1024);
 
@@ -2942,16 +3030,16 @@ void scheduling_prefetch(){
     }
 
 
-    if(migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL"){ //For GDS-based baselines, do some loosen on the target line 
-                                                                                 //can gain best performance since without UVM the GPU mem requirement is stict
-        loosen_parameter = 1.060606;
-        if (borden<200 && is_transformer==1 && migration_policy_str=="G10GDSFULL")
-        {
-            loosen_parameter = 1.269366;
-        }
+    // if(migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL"){ //For GDS-based baselines, do some loosen on the target line 
+    //                                                                              //can gain best performance since without UVM the GPU mem requirement is stict
+    //     loosen_parameter = 1.060606;
+    //     if (borden<200 && is_transformer==1 && migration_policy_str=="G10GDSFULL")
+    //     {
+    //         loosen_parameter = 1.269366;
+    //     }
         
-    }
-    target_mem_line = loosen_parameter * target_mem_line;    
+    // }
+    // target_mem_line = loosen_parameter * target_mem_line;    
 
     //Except for A0, pre-deallocation all other tensors  #First pass - to figure out the memory pressure region
     for (int i = 1; i < tensor_list.size(); i++)
@@ -2986,7 +3074,7 @@ void scheduling_prefetch(){
                     
                 for (int j = 0; j < birth_date_index; j++)
                 {
-                    if (kernel_time_table[j] <= pre_alloc_start_time_precise && kernel_time_table[j+1] > pre_alloc_start_time_precise)
+                    if (kernel_time_table[j] <= pre_alloc_start_time_precise && kernel_time_table[j+1] >= pre_alloc_start_time_precise)
                     {
                         //DataMovementHint pre_allo(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, j, curr_tensor);
                         //movement_hints.push_back(pre_allo);
@@ -3199,8 +3287,8 @@ void scheduling_prefetch(){
 
 
     
-    std::cout<<"After pre-deallocation"<<std::endl;
-    print_GPU_mem_estimation();
+    // std::cout<<"After pre-deallocation"<<std::endl;
+    print_GPU_mem_estimation("liveness");
 
     for (int j = 0; j < GPU_resident_memory_estimation.size(); j++)
     {
@@ -3229,7 +3317,7 @@ void scheduling_prefetch(){
 
 
     //Schedule the prefetches and pre-evictions, Go through all the intervals, from largest to shortest
-    int cold_period_iter = 0;
+    int cold_period_iter = -1;
     int tot_iter_num = interval_list.size();
 
     for (int i = 0; i < tot_iter_num; i++)
@@ -3324,9 +3412,10 @@ void scheduling_prefetch(){
         
         // The interval list is already sorted
         Hidding_Interval* curr_interval = interval_list[0];
-        curr_interval->print();
+        // curr_interval->print();
         if (curr_interval->is_offloaded)
         {
+            cold_period_iter = 0;
             break;
         }
         
@@ -3666,10 +3755,10 @@ void scheduling_prefetch(){
 
 
 
-    std::cout<<"Cold_iter: "<<cold_period_iter<<", Interval_list_size: "<<interval_list.size()<<std::endl;
+    std::cout<<"cold_iter = "<<cold_period_iter<<std::endl;
 
-    std::cout << "After First-time Offloading" << std::endl;
-    print_GPU_mem_estimation();
+    // std::cout << "After First-time Offloading" << std::endl;
+    print_GPU_mem_estimation("offloaded");
 
     if (eviction_policy_str=="TOLERANT")
     {
@@ -3865,15 +3954,15 @@ void scheduling_prefetch(){
         }
 
         std::cout << "After Tolerant offloading" << std::endl;
-        print_GPU_mem_estimation();
+        // print_GPU_mem_estimation();
     }
 
 
-    std::cout<<"BW Estimation:"<<std::endl;
+    // std::cout<<"BW Estimation:"<<std::endl;
     print_BW_estimations();
 
 
-    std::cout<<"Now scheduling local prefetch!"<<std::endl;
+    // std::cout<<"Now scheduling local prefetch!"<<std::endl;
     std::sort(offloeded_local_intervals.begin(), offloeded_local_intervals.end(), [](Hidding_Interval* a, Hidding_Interval* b){
         return a->original_prefetch_index < b->original_prefetch_index;
     });
@@ -3882,7 +3971,7 @@ void scheduling_prefetch(){
     for (int i = 0; i < offloeded_local_intervals.size(); i++)
     {
         Hidding_Interval* current_interv = offloeded_local_intervals[i];
-        std::cout<<current_interv->original_prefetch_index<<std::endl;
+        // std::cout<<current_interv->original_prefetch_index<<std::endl;
 
         int iindx = current_interv->original_prefetch_index;
         while (iindx > current_interv->evict_finish_index + 1)
@@ -3908,8 +3997,8 @@ void scheduling_prefetch(){
     }
 
 
-    std::cout << "---------After Second-time Modification" << std::endl;
-    print_GPU_mem_estimation();
+    // std::cout << "---------After Second-time Modification" << std::endl;
+    print_GPU_mem_estimation("After_Prefetch_adjusted");
     
     hill_mem = GPU_resident_memory_estimation[hill_index];
 
@@ -3954,10 +4043,10 @@ void scheduling_prefetch(){
             }
         }
 
-        std::cout<<"Hill_index: "<<hill_index<<std::endl;
+        std::cout<<"hill_index = "<<hill_index<<std::endl;
 
-        std::cout << "---------After Final-time GDS Modification" << std::endl;
-        print_GPU_mem_estimation();
+        // std::cout << "---------After Final-time GDS Modification" << std::endl;
+        // print_GPU_mem_estimation();
     }
     
 
@@ -3978,12 +4067,24 @@ void print_prefetch_table(){
 }
 
 
-void print_GPU_mem_estimation(){
+void print_GPU_mem_estimation(string addi){
+    std::cout<<addi<<"_total = [";
     for (int i = 0; i < kernel_list.size(); i++)
     {
-        std::cout<<"Kernel "<<i<<": "<<GPU_resident_memory_estimation[i]<<std::endl;
+        std::cout<<GPU_resident_memory_estimation[i]<<",";
     }
-    
+    std::cout<<"]"<<std::endl;
+
+    long max = 0;
+    for (int i = 0; i < kernel_list.size(); i++)
+    {
+        if (GPU_resident_memory_estimation[i] > max)
+        {
+            /* code */
+            max = GPU_resident_memory_estimation[i];
+        }
+    }
+    std::cout<<addi<<"_max = "<<max<<std::endl;
 }
 
 

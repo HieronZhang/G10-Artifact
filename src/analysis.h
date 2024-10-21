@@ -225,7 +225,7 @@ double simulate_flashneuron();
 
 void print_prefetch_table();
 
-void print_GPU_mem_estimation();
+void print_GPU_mem_estimation(string addi);
 
 void print_GPU_mem_really_in_use();
 
