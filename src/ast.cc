@@ -752,11 +752,11 @@ void transformer_parse(std::string filename){
     int op_id;
     int count = 0;
     
-    int auto_borden;
-    fin>>auto_borden;
-    if (auto_borden) {
-        borden = auto_borden;
-    }
+    // int auto_borden;
+    // fin>>auto_borden;
+    // if (auto_borden) {
+    //     borden = auto_borden;
+    // }
 
     while (fin>>op_id)
     {

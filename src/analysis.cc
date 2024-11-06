@@ -1390,9 +1390,11 @@ void transformer_scheduling_kernels(){
     }
 
     //makeLoss
-    kernel_list.emplace_back(CUDAKernelType::makeLoss, forward_ops[forward_ops.size()-1]);
-    kernel_list.back().inputs.insert(forward_ops[forward_ops.size()-1]->output_tensor);
-    kernel_list.back().outputs.insert(forward_ops[forward_ops.size()-1]->d_output_tensors[0]);
+    kernel_list.reserve(kernel_list.size()+1);
+    Model_OP* current_op = forward_ops[forward_ops.size()-1];
+    kernel_list.emplace_back(CUDAKernelType::makeLoss, current_op);
+    kernel_list.back().inputs.insert(current_op->output_tensor);
+    kernel_list.back().outputs.insert(current_op->d_output_tensors[0]);
 
 
     //Backward_pass
