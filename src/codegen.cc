@@ -3498,10 +3498,10 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
         fworkspaceout.open(workspace_filename, ofstream::app);
     }
     // write to config file anyway
-    // fconfigout.open(config_filename, ofstream::out | ofstream::trunc);
-    // Assert(fconfigout.good());
-    // fconfigout.close();
-    // fconfigout.open(config_filename, ofstream::app);
+    fconfigout.open(config_filename, ofstream::out | ofstream::trunc);
+    Assert(fconfigout.good());
+    fconfigout.close();
+    fconfigout.open(config_filename, ofstream::app);
 
     vector<long> args;
     for (CUDAKernel kernel : kernel_list) {
@@ -3679,6 +3679,8 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->output_tensor->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case ReLU_Forward:
@@ -3689,7 +3691,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Assert(op != nullptr);
                     long values[4];
                     int i0_dim_size = op->input_tensors[0].dims.size();
-                    int i1_dim_size = op->input_tensors[1].dims.size();
+                    // int i1_dim_size = op->input_tensors[1].dims.size();
                     for (int i = 3; i >= 0; i--)
                     {
                       if (3-i<i0_dim_size && i>=0)
@@ -3706,6 +3708,9 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(values[0]);
                     args.push_back(values[2]);
                     args.push_back(values[3]);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
+
                     // std::cout << values[0] << values[1] << values[2] << values[3] << "\n";
                     // std::cout << args[0] << args[1] << args[2] << args[3] << args[4] << "\n";
                     break;
@@ -3727,6 +3732,9 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(0);
                     args.push_back(32);
                     args.push_back(32);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->input_tensors[1].tensor));  //filter
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Linear_Forward:
@@ -3756,6 +3764,9 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(values[3]);
                     args.push_back(op->input_tensors[1].dims[i1_dim_size-2]);
                     args.push_back(op->input_tensors[1].dims[i1_dim_size-1]);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->input_tensors[1].tensor));  //weight
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Add_Forward:
@@ -3768,6 +3779,9 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->output_tensor->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input1
+                    args.push_back((uint64_t)(op->input_tensors[1].tensor));  //input2
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Add_MultiGredient: {
@@ -3777,6 +3791,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->d_output_tensors[0]->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
+                    //Skip for now
                     break;
                 }
                 case BatchMatMul_Forward:
@@ -3804,6 +3819,9 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(values[3]);
                     args.push_back(op->input_tensors[1].dims[i1_dim_size-2]);
                     args.push_back(op->input_tensors[1].dims[i1_dim_size-1]);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input1
+                    args.push_back((uint64_t)(op->input_tensors[1].tensor));  //input2
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Divide_Forward:
@@ -3822,6 +3840,8 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->output_tensor->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Sqrt_Forward:
@@ -3831,6 +3851,8 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->input_tensors[0].tensor->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Sum_Forward:
@@ -3841,15 +3863,21 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(512);
                     args.push_back(1024);
                     args.push_back(op->input_tensors[0].tensor->size_in_byte / op->output_tensor->size_in_byte);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case Apply_Grad:
                 case Linear_Apply_Grad_Weight: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
                     auto it = kernel.outputs.begin();
                     long val = (*it)->size_in_byte / 4;
                     args.push_back(val);
                     args.push_back(512);
                     args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 case makeLoss: {
@@ -3858,6 +3886,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(val);
                     args.push_back(512);
                     args.push_back(1024);
+                    //Skip for now
                     break;
                 }
                 default:
@@ -3896,24 +3925,24 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                 fworkspaceout.flush();
             }
         }
-        // fconfigout << print_kerneltype_array[kernel.type] << " ";
-        // for (long arg : args)
-        //     fconfigout << arg << " ";
+        fconfigout << print_kerneltype_array[kernel.type] << " ";
+        for (long arg : args)
+            fconfigout << arg << " ";
             
-        // if (kernel.type != LoadData_A0) {
-        //     if (is_input_pf_only) {
-        //         fconfigout << "1 0 ";
-        //     } else if (is_UVM) {
-        //         fconfigout << "0 0 ";
-        //     } else {
-        //         fconfigout << "1 1 ";
-        //     }
-        // }
-        // fconfigout << "\n";
-        // fconfigout.flush();
+        if (kernel.type != LoadData_A0) {
+            if (is_input_pf_only) {
+                fconfigout << "1 0 ";
+            } else if (is_UVM) {
+                fconfigout << "0 0 ";
+            } else {
+                fconfigout << "1 1 ";
+            }
+        }
+        fconfigout << "\n";
+        fconfigout.flush();
     }
-    // fconfigout.close();
-    // iprintf("CUDNN profile input file have been saved to <%s>\n", config_filename.c_str());
+    fconfigout.close();
+    iprintf("CUDNN profile input file have been saved to <%s>\n", config_filename.c_str());
 
     if (file_pf_string.length()==0) {
         if (!individual_run) {

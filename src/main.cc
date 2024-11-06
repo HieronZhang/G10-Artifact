@@ -992,8 +992,8 @@ int main(int argc, char *argv[]) {
         if (is_cudnn) {
             iprintf("Generating main code -- CUDNN mode\n", "");
             auto start_time = high_resolution_clock::now();
-            cudnn_profiling(true);          // normal run, individual
-            // cudnn_profiling(false);         // normal run, grouped
+            // cudnn_profiling(true);          // normal run, individual
+            cudnn_profiling(false);         // normal run, grouped
             // cudnn_profiling(false, true);   // workspace only
             duration<float> fsec = high_resolution_clock::now() - start_time;
             iprintf("Profiling duration: %fs (%fms)\n", fsec.count(), fsec.count() * 1000);
