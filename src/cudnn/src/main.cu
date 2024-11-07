@@ -58,6 +58,12 @@ using std::ifstream;
 using std::unique_ptr;
 using std::runtime_error;
 
+
+
+std::unordered_map<long, float*> allocation_map; 
+
+
+
 float get_avg(Profiler &p) {
     float total_runtime = 0;
 #ifdef DEBUG_PRINT
@@ -543,6 +549,9 @@ void grouped_run(cudnnHandle_t& cudnn, string input_filename, bool is_UVM) {
     }
     int total_size = std::ceil(std::log10(stoi(total_knum_str) - 1));
 
+    std::vector<Profiler*> kernel_profile_array;
+    kernel_profile_array.clear();
+
     while (std::getline(fin, line)) {
         std::stringstream ss(line);
         ss >> algo;
@@ -603,9 +612,26 @@ void grouped_run(cudnnHandle_t& cudnn, string input_filename, bool is_UVM) {
         else if (algo == "Subtract_Backward")           p = new Add_Backward       (cudnn, args, is_UVM); 
         else if (algo == "Apply_Grad")                  p = new ApplyGrad          (cudnn, args, is_UVM); 
         else                                            ASSERT(false, algo);
+
+        kernel_profile_array.push_back(p);
+        // printf("%0*d %f ms\n", total_size, kernel_num++, get_avg(*p));
+        // delete p;
+    }
+
+    long num_kernels = kernel_profile_array.size();
+    for (size_t i = 0; i < num_kernels; i++)
+    {
+        Profiler* p = kernel_profile_array[i];
         printf("%0*d %f ms\n", total_size, kernel_num++, get_avg(*p));
+    }
+
+    for (size_t i = 0; i < num_kernels; i++)
+    {
+        Profiler* p = kernel_profile_array[i];
         delete p;
     }
+    
+
 }
 
 size_t direct_get_workspace_size(cudnnHandle_t& cudnn, string algo, vector<double> &args) {

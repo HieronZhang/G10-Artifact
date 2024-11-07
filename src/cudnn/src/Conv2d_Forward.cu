@@ -2,6 +2,9 @@
 #include <vector>
 #include "Conv2d_Forward.h"
 
+
+extern std::unordered_map<long, float*> allocation_map; 
+
 Conv2d_Forward::Conv2d_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM) : 
         handle(handle), is_UVM(is_UVM) {
     // 0. batch_size    1. in_channels   2. input_height  3. input_width
@@ -12,7 +15,8 @@ Conv2d_Forward::Conv2d_Forward(cudnnHandle_t handle, vector<double> &args, bool 
     filter_n   = args[4];   filter_c   = args[1];   filter_h   = args[5];   filter_w = args[6];
     padding_h  = args[7];   padding_w  = args[8];
     stride_h   = args[9];   stride_w   = args[10];
-    input_ratio = args[11]; output_ratio = args[12];
+    input_indicator = args[11]; filter_indicator = args[12]; output_indicator = args[13];
+    input_ratio = args[14]; output_ratio = args[15];
     dilation_h = 1;         dilation_w = 1;
 
     CUDNN_CALL(cudnnCreateTensorDescriptor(&input_descriptor));
@@ -94,16 +98,48 @@ Conv2d_Forward::~Conv2d_Forward() {
 
 float Conv2d_Forward::Run() {
     if (is_UVM) {
-        CUDA_CALL(cudaMallocManaged(&input_data, (long) input_n * input_c * input_h * input_w * sizeof(float)));
-        CUDA_CALL(cudaMallocManaged(&filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float)));
-        CUDA_CALL(cudaMallocManaged(&output_data, (long) output_n * output_c * output_h * output_w * sizeof(float)));
+
+
+        if (allocation_map.find(input_indicator) != allocation_map.end()) {
+            input_data = allocation_map[input_indicator];
+        }
+        else
+        {
+            CUDA_CALL(cudaMallocManaged(&input_data, (long) input_n * input_c * input_h * input_w * sizeof(float)));
+            allocation_map[input_indicator] = input_data;
+        }
+
+        if (allocation_map.find(filter_indicator) != allocation_map.end()) {
+            filter_data = allocation_map[filter_indicator];
+        }
+        else
+        {
+            CUDA_CALL(cudaMallocManaged(&filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float)));
+            allocation_map[filter_indicator] = filter_data;
+        }
+        
+        if (allocation_map.find(output_indicator) != allocation_map.end()) {
+            output_data = allocation_map[output_indicator];
+        }
+        else
+        {
+            CUDA_CALL(cudaMallocManaged(&output_data, (long) output_n * output_c * output_h * output_w * sizeof(float)));
+            allocation_map[output_indicator] = output_data;
+        }
+
+
+        // CUDA_CALL(cudaMallocManaged(&input_data, (long) input_n * input_c * input_h * input_w * sizeof(float)));
+        // CUDA_CALL(cudaMallocManaged(&filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float)));
+        // CUDA_CALL(cudaMallocManaged(&output_data, (long) output_n * output_c * output_h * output_w * sizeof(float)));
+
         CUDA_CALL(cudaMallocManaged(&workspace_data, workspace_size));
-        CPUFillRand(input_data, (long) input_n * input_c * input_h * input_w * sizeof(float));
-        CPUFillRand(filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float));
-        GPUFillRand(input_data, (long) input_n * input_c * input_h * input_w * sizeof(float) * input_ratio);
-        GPUFillRand(filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float) * input_ratio);
-        GPUFillRand(output_data, (long) output_n * output_c * output_h * output_w * sizeof(float) * output_ratio);
-        GPUFillRand(workspace_data, workspace_size * output_ratio);
+
+        // CPUFillRand(input_data, (long) input_n * input_c * input_h * input_w * sizeof(float));
+        // CPUFillRand(filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float));
+        // GPUFillRand(input_data, (long) input_n * input_c * input_h * input_w * sizeof(float) * input_ratio);
+        // GPUFillRand(filter_data, (long) filter_n * filter_c * filter_h * filter_w * sizeof(float) * input_ratio);
+        // GPUFillRand(output_data, (long) output_n * output_c * output_h * output_w * sizeof(float) * output_ratio);
+        // GPUFillRand(workspace_data, workspace_size * output_ratio);
         //gpu_access<<<128, 128>>>(input_data, (long) input_n * input_c * input_h * input_w * sizeof(float) * input_ratio);
         cudaDeviceSynchronize();
     }
@@ -127,12 +163,12 @@ float Conv2d_Forward::Run() {
 
     CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    if (is_UVM) {
-        CUDA_CALL(cudaFree(input_data));
-        CUDA_CALL(cudaFree(output_data));
-        CUDA_CALL(cudaFree(filter_data));
-        CUDA_CALL(cudaFree(workspace_data));
-    }
+    // if (is_UVM) {
+    //     CUDA_CALL(cudaFree(input_data));
+    //     CUDA_CALL(cudaFree(output_data));
+    //     CUDA_CALL(cudaFree(filter_data));
+    //     CUDA_CALL(cudaFree(workspace_data));
+    // }
     return milliseconds;
 }
 

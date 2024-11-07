@@ -3840,7 +3840,10 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     args.push_back(op->output_tensor->size_in_byte / 4);
                     args.push_back(512);
                     args.push_back(1024);
-                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input1
+                    if(op->input_tensors.size() > 1){
+                      args.push_back((uint64_t)(op->input_tensors[1].tensor));  //input2
+                    }
                     args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
@@ -3881,12 +3884,15 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     break;
                 }
                 case makeLoss: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
                     auto it = kernel.outputs.begin();
                     long val = (*it)->size_in_byte / 4;
                     args.push_back(val);
                     args.push_back(512);
                     args.push_back(1024);
-                    //Skip for now
+                    args.push_back((uint64_t)(op->output_tensor));  //input
+                    args.push_back((uint64_t)(op->d_output_tensors[0])); //output
                     break;
                 }
                 default:

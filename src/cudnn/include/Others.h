@@ -19,7 +19,14 @@ class Add : public Profiler {
 
         float **input_data;
         float **device_input_data;
+        float *input1_data;
+        float *input2_data;
         float *output_data;
+
+        long input1_indicator;  //input_data[0]
+        long input2_indicator;  //input_data[1]
+        long output_indicator;
+
 
         Add(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Add();
@@ -57,6 +64,10 @@ class Divide_Forward : public Profiler {
         float *input_a;
         float *input_b;
         float *output_c;
+
+        long input_a_indicator;
+        long input_b_indicator;
+        long output_indicator;
 
         Divide_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Divide_Forward();
@@ -120,6 +131,10 @@ class Multiply : public Profiler {
         float *inputA;
         float *inputB;
 
+        long inputA_indicator;
+        long inputB_indicator;
+        long output_indicator;
+
         Multiply(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Multiply();
         float Run();
@@ -139,6 +154,10 @@ class Power_Forward : public Profiler {
         float *output;
         float *inputA;
         float *inputB;
+
+        long inputA_indicator;
+        long inputB_indicator;
+        long output_indicator;
 
         Power_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Power_Forward();
@@ -182,6 +201,9 @@ class Sqrt_Forward : public Profiler {
         float *output;
         float *input;
 
+        long input_indicator;
+        long output_indicator;
+
         Sqrt_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Sqrt_Forward();
         float Run();
@@ -219,6 +241,9 @@ class Tanh_Forward : public Profiler {
 
         float *output;
         float *input;
+
+        long input_indicator;
+        long output_indicator;
 
         Tanh_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Tanh_Forward();
@@ -258,6 +283,9 @@ class Erf_Forward : public Profiler {
 
         float *output;
         float *input;
+
+        long input_indicator;
+        long output_indicator;
 
         Erf_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Erf_Forward();
@@ -299,6 +327,9 @@ class Sum_Forward : public Profiler {
         float *output_b;
         float *input_a;
 
+        long input_indicator;
+        long output_indicator;
+
         Sum_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Sum_Forward();
         float Run();
@@ -338,6 +369,9 @@ class GatherV2_Forward : public Profiler {
         float *output;
         float *input;
 
+        long input_indicator;
+        long output_indicator;
+
         GatherV2_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~GatherV2_Forward();
         float Run();
@@ -356,6 +390,9 @@ class GatherV2_Backward : public Profiler {
 
         float *output_da;
         float *input_db;
+
+        long input_indicator;
+        long output_indicator;
 
         GatherV2_Backward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~GatherV2_Backward();
@@ -394,6 +431,9 @@ class MakeError : public Profiler {
 
         float *error_data;
         float *output_data;
+
+        long output_indicator;
+        long error_indicator;
 
         MakeError(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~MakeError();

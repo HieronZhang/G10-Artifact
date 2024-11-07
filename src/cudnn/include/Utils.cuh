@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <vector>
+#include <unordered_map>
 
 #define CUDNN_CALL(func) {                                                                         \
   cudnnStatus_t status = (func);                                                                   \

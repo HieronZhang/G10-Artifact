@@ -20,6 +20,12 @@ class Linear_Forward : public Profiler {
         float *output_data;
         double input_ratio, output_ratio;
 
+        long input_indicator;
+        long weight_indicator;
+        long output_indicator;
+
+
+
         Linear_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Linear_Forward();
         float Run();
@@ -44,6 +50,10 @@ class BatchMatMul_Forward : public Profiler {
 
         float *output_data;
         double input_ratio, output_ratio;
+
+        long input1_indicator;
+        long input2_indicator;
+        long output_indicator;
 
         BatchMatMul_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~BatchMatMul_Forward();

@@ -36,6 +36,10 @@ class Conv2d_Forward : public Profiler {
         float *filter_data;
         float *output_data;
 
+        long input_indicator;
+        long filter_indicator;
+        long output_indicator;
+
         Conv2d_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Conv2d_Forward();
         float Run();

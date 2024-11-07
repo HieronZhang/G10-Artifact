@@ -5,6 +5,9 @@
 
 using std::vector;
 
+extern std::unordered_map<long, float*> allocation_map; 
+
+
 class ReLU_Forward : public Profiler {
     public:
         cudnnHandle_t handle;
@@ -19,6 +22,9 @@ class ReLU_Forward : public Profiler {
 
         float* input_data;
         float* output_data;
+
+        long input_indicator;
+        long output_indicator;
 
         ReLU_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~ReLU_Forward();
@@ -44,6 +50,9 @@ class Softmax_Forward : public Profiler {
 
         float* input_data;
         float* output_data;
+
+        long input_indicator;
+        long output_indicator;
 
         Softmax_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
         ~Softmax_Forward();

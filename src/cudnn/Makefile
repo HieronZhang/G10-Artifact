@@ -1,5 +1,5 @@
 CXX := nvcc
-CUDNN_PATH := /usr/local/cuda
+CUDNN_PATH := /usr/local/cuda-12.2
 SRC_DIR := src
 OBJ_DIR := bin
 HEADERS := -I $(CUDNN_PATH)/include -I ./include
