@@ -3677,7 +3677,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Model_OP *op = kernel.parent_op;
                     Assert(op != nullptr);
                     args.push_back(op->output_tensor->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
                     args.push_back((uint64_t)(op->output_tensor)); //output
@@ -3777,7 +3777,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Assert(op != nullptr);
                     args.push_back(2);
                     args.push_back(op->output_tensor->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input1
                     args.push_back((uint64_t)(op->input_tensors[1].tensor));  //input2
@@ -3789,7 +3789,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Assert(op != nullptr);
                     args.push_back(op->d_output_tensors.size());
                     args.push_back(op->d_output_tensors[0]->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     //Skip for now
                     break;
@@ -3838,7 +3838,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Model_OP *op = kernel.parent_op;
                     Assert(op != nullptr);
                     args.push_back(op->output_tensor->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input1
                     if(op->input_tensors.size() > 1){
@@ -3852,7 +3852,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Model_OP *op = kernel.parent_op;
                     Assert(op != nullptr);
                     args.push_back(op->input_tensors[0].tensor->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
                     args.push_back((uint64_t)(op->output_tensor)); //output
@@ -3863,7 +3863,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     Model_OP *op = kernel.parent_op;
                     Assert(op != nullptr);
                     args.push_back(op->output_tensor->size_in_byte / 4);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back(op->input_tensors[0].tensor->size_in_byte / op->output_tensor->size_in_byte);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
@@ -3877,7 +3877,7 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     auto it = kernel.outputs.begin();
                     long val = (*it)->size_in_byte / 4;
                     args.push_back(val);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
                     args.push_back((uint64_t)(op->output_tensor)); //output
@@ -3889,10 +3889,21 @@ void cudnn_profiling(bool individual_run, bool workspace_only) {
                     auto it = kernel.outputs.begin();
                     long val = (*it)->size_in_byte / 4;
                     args.push_back(val);
-                    args.push_back(512);
+                    args.push_back(2048);
                     args.push_back(1024);
                     args.push_back((uint64_t)(op->output_tensor));  //input
                     args.push_back((uint64_t)(op->d_output_tensors[0])); //output
+                    break;
+                }
+                case Spread_Forward: {
+                    Model_OP *op = kernel.parent_op;
+                    Assert(op != nullptr);
+                    args.push_back(op->input_tensors[0].tensor->size_in_byte / 4);
+                    args.push_back(op->output_tensor->size_in_byte / 4);
+                    args.push_back(2048);
+                    args.push_back(1024);
+                    args.push_back((uint64_t)(op->input_tensors[0].tensor));  //input
+                    args.push_back((uint64_t)(op->output_tensor)); //output
                     break;
                 }
                 default:

@@ -294,6 +294,29 @@ class Erf_Forward : public Profiler {
 
 
 
+class Spread_Forward : public Profiler {
+    public:
+        cudnnHandle_t handle;
+        bool is_UVM;
+
+        long n, N;
+        long batch_size, num_threads;
+        double input_ratio, output_ratio;
+
+        float *output;
+        float *input;
+
+        long input_indicator;
+        long output_indicator;
+
+        Spread_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM);
+        ~Spread_Forward();
+        float Run();
+};
+
+
+
+
 class Erf_Backward : public Profiler {
     public:
         cudnnHandle_t handle;

@@ -559,6 +559,37 @@ void transformer_op_datalow_pass(int borden){
     {
         forward_ops[i]->print();
     }
+
+    for (auto it = forward_ops.begin(); it != forward_ops.end(); ++it)
+    {
+        Model_OP* curr_op = *it;
+
+        if (curr_op->type == "Relu" || curr_op->type == "Add" || curr_op->type == "Divide" || curr_op->type == "Multiply" || curr_op->type == "Power" || curr_op->type == "SoftmaxBasic" || curr_op->type == "Sqrt" || curr_op->type == "Subtract" || curr_op->type == "Tanh" || curr_op->type == "Erf")
+        {
+            if (curr_op->output_tensor->size_in_byte > curr_op->input_tensors[0].tensor->size_in_byte)
+            {
+                Tensor* original_output = curr_op->output_tensor;
+
+                long spread_factor = curr_op->output_tensor->size_in_byte / curr_op->input_tensors[0].tensor->size_in_byte;
+                Tensor* spread = new Tensor(curr_op->input_tensors[0].tensor->size_in_byte, false);
+                tensor_list.push_back(spread);
+                curr_op->output_tensor = spread;
+
+                Model_OP* spread_op = new Model_OP;
+                spread_op->op_id = -1;
+                spread_op->type = "Spread";
+                spread_op->input_num = 1;
+                spread_op->input_tensors.resize(1);
+                spread_op->input_tensors[0] = curr_op->input_tensors[0];
+                spread_op->input_tensors[0].tensor = spread;
+                spread_op->input_tensors[0].d_tensor = nullptr;
+
+                spread_op->output_tensor = original_output;
+
+                it = forward_ops.insert(it + 1, spread_op);
+            }
+        }
+    }
     
 }
 
@@ -1378,6 +1409,10 @@ void transformer_scheduling_kernels(){
         {
             kernel_list.emplace_back(CUDAKernelType::Erf_Forward, current_op);
         }
+        else if (current_op->type=="Spread")
+        {
+            kernel_list.emplace_back(CUDAKernelType::Spread_Forward, current_op);
+        }
         else{
             exit(1);
         }
@@ -1387,6 +1422,8 @@ void transformer_scheduling_kernels(){
             kernel_list.back().inputs.insert(current_op->input_tensors[j].tensor);
         }
         kernel_list.back().outputs.insert(current_op->output_tensor);
+        
+
     }
 
     //makeLoss
@@ -1398,350 +1435,357 @@ void transformer_scheduling_kernels(){
 
 
     //Backward_pass
-    for (int i = (int)forward_ops.size() - 1; i >= 0; i--){
+    // for (int i = (int)forward_ops.size() - 1; i >= 0; i--){
 
-        Model_OP* current_op = forward_ops[i];
+    //     Model_OP* current_op = forward_ops[i];
 
-        //First fuse the multiple d_outputs:
-        if (current_op->d_output_tensors.size()>1)
-        {
-            kernel_list.emplace_back(CUDAKernelType::Add_MultiGredient, current_op);
-            for (int j = 0; j < current_op->d_output_tensors.size(); j++)
-            {
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[j]);
-            }
-            kernel_list.back().outputs.insert(current_op->d_output_tensors[0]);
-        }
+    //     //First fuse the multiple d_outputs:
+    //     if (current_op->d_output_tensors.size()>1)
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Add_MultiGredient, current_op);
+    //         for (int j = 0; j < current_op->d_output_tensors.size(); j++)
+    //         {
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[j]);
+    //         }
+    //         kernel_list.back().outputs.insert(current_op->d_output_tensors[0]);
+    //     }
 
-        //Go
+    //     //Go
         
-        if (current_op->type=="GatherV2")
-        {
-            kernel_list.emplace_back(CUDAKernelType::GatherV2_Backward, current_op);
-            Tensor* d_input = nullptr;
-            Tensor* d_weight = nullptr;
-            Tensor* input = nullptr;
-            Tensor* weight = nullptr;
+    //     if (current_op->type=="GatherV2")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::GatherV2_Backward, current_op);
+    //         Tensor* d_input = nullptr;
+    //         Tensor* d_weight = nullptr;
+    //         Tensor* input = nullptr;
+    //         Tensor* weight = nullptr;
 
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    d_weight = current_op->input_tensors[j].d_tensor;
-                    weight = current_op->input_tensors[j].tensor;
-                }
-                else
-                {
-                    input = current_op->input_tensors[j].tensor;
-                    if (current_op->input_tensors[j].d_tensor)
-                    {
-                        d_input = current_op->input_tensors[j].d_tensor;
-                    }
-                }
-            }
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 d_weight = current_op->input_tensors[j].d_tensor;
+    //                 weight = current_op->input_tensors[j].tensor;
+    //             }
+    //             else
+    //             {
+    //                 input = current_op->input_tensors[j].tensor;
+    //                 if (current_op->input_tensors[j].d_tensor)
+    //                 {
+    //                     d_input = current_op->input_tensors[j].d_tensor;
+    //                 }
+    //             }
+    //         }
 
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(input);
-            kernel_list.back().outputs.insert(d_weight);
-            if (d_input)
-            {
-                kernel_list.back().outputs.insert(d_input);
-            }
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(input);
+    //         kernel_list.back().outputs.insert(d_weight);
+    //         if (d_input)
+    //         {
+    //             kernel_list.back().outputs.insert(d_input);
+    //         }
 
-            kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-            kernel_list.back().inputs.insert(d_weight);
-            kernel_list.back().inputs.insert(weight);
-            kernel_list.back().outputs.insert(weight);
+    //         kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //         kernel_list.back().inputs.insert(d_weight);
+    //         kernel_list.back().inputs.insert(weight);
+    //         kernel_list.back().outputs.insert(weight);
 
     
-        }
-        else if (current_op->type=="Dot")
-        {
-            Tensor* d_input = nullptr;
-            Tensor* d_weight = nullptr;
-            Tensor* input = nullptr;
-            Tensor* weight = nullptr;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    d_weight = current_op->input_tensors[j].d_tensor;
-                    weight = current_op->input_tensors[j].tensor;
-                }
-                else
-                {
-                    input = current_op->input_tensors[j].tensor;
-                    d_input = current_op->input_tensors[j].d_tensor;
-                }
-            }
+    //     }
+    //     else if (current_op->type=="Dot")
+    //     {
+    //         Tensor* d_input = nullptr;
+    //         Tensor* d_weight = nullptr;
+    //         Tensor* input = nullptr;
+    //         Tensor* weight = nullptr;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 d_weight = current_op->input_tensors[j].d_tensor;
+    //                 weight = current_op->input_tensors[j].tensor;
+    //             }
+    //             else
+    //             {
+    //                 input = current_op->input_tensors[j].tensor;
+    //                 d_input = current_op->input_tensors[j].d_tensor;
+    //             }
+    //         }
 
 
-            kernel_list.emplace_back(CUDAKernelType::Linear_Backward_Weight, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(input);
-            kernel_list.back().outputs.insert(d_weight);
+    //         kernel_list.emplace_back(CUDAKernelType::Linear_Backward_Weight, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(input);
+    //         kernel_list.back().outputs.insert(d_weight);
 
-            if (d_input)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Linear_Backward_Input, current_op);
-                kernel_list.back().inputs.insert(weight);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().outputs.insert(d_input);
+    //         if (d_input)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Linear_Backward_Input, current_op);
+    //             kernel_list.back().inputs.insert(weight);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().outputs.insert(d_input);
 
-            }
+    //         }
             
-            kernel_list.emplace_back(CUDAKernelType::Linear_Apply_Grad_Weight, current_op);
-            kernel_list.back().inputs.insert(d_weight);
-            kernel_list.back().inputs.insert(weight);
-            kernel_list.back().outputs.insert(weight);
+    //         kernel_list.emplace_back(CUDAKernelType::Linear_Apply_Grad_Weight, current_op);
+    //         kernel_list.back().inputs.insert(d_weight);
+    //         kernel_list.back().inputs.insert(weight);
+    //         kernel_list.back().outputs.insert(weight);
 
-        }
-        else if (current_op->type=="Convolution")
-        {
-            Tensor* d_input = nullptr;
-            Tensor* d_weight = nullptr;
-            Tensor* input = nullptr;
-            Tensor* weight = nullptr;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    d_weight = current_op->input_tensors[j].d_tensor;
-                    weight = current_op->input_tensors[j].tensor;
-                }
-                else
-                {
-                    input = current_op->input_tensors[j].tensor;
-                    if (current_op->input_tensors[j].d_tensor)
-                    {
-                        d_input = current_op->input_tensors[j].d_tensor;
-                    }
-                }
-            }
+    //     }
+    //     else if (current_op->type=="Convolution")
+    //     {
+    //         Tensor* d_input = nullptr;
+    //         Tensor* d_weight = nullptr;
+    //         Tensor* input = nullptr;
+    //         Tensor* weight = nullptr;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 d_weight = current_op->input_tensors[j].d_tensor;
+    //                 weight = current_op->input_tensors[j].tensor;
+    //             }
+    //             else
+    //             {
+    //                 input = current_op->input_tensors[j].tensor;
+    //                 if (current_op->input_tensors[j].d_tensor)
+    //                 {
+    //                     d_input = current_op->input_tensors[j].d_tensor;
+    //                 }
+    //             }
+    //         }
 
-            kernel_list.emplace_back(CUDAKernelType::Conv2d_Backward_Weight, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(input);
-            kernel_list.back().outputs.insert(d_weight);
+    //         kernel_list.emplace_back(CUDAKernelType::Conv2d_Backward_Weight, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(input);
+    //         kernel_list.back().outputs.insert(d_weight);
 
-            if(d_input){
-                kernel_list.emplace_back(CUDAKernelType::Conv2d_Backward_Input, current_op);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().inputs.insert(weight);
-                kernel_list.back().outputs.insert(d_input);
-            }
+    //         if(d_input){
+    //             kernel_list.emplace_back(CUDAKernelType::Conv2d_Backward_Input, current_op);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().inputs.insert(weight);
+    //             kernel_list.back().outputs.insert(d_input);
+    //         }
 
-            kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-            kernel_list.back().inputs.insert(d_weight);
-            kernel_list.back().inputs.insert(weight);
-            kernel_list.back().outputs.insert(weight);
-        }
+    //         kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //         kernel_list.back().inputs.insert(d_weight);
+    //         kernel_list.back().inputs.insert(weight);
+    //         kernel_list.back().outputs.insert(weight);
+    //     }
         
-        else if (current_op->type=="Relu")
-        {
-            kernel_list.emplace_back(CUDAKernelType::ReLU_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="Add")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Add_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            int global_id = -1;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].d_tensor)
-                {
-                    kernel_list.back().outputs.insert(current_op->input_tensors[j].d_tensor);
-                }
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    global_id = j;
-                }
-            }
-            if (global_id!=-1)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
-            }
+    //     else if (current_op->type=="Relu")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::ReLU_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Add")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Add_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         int global_id = -1;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].d_tensor)
+    //             {
+    //                 kernel_list.back().outputs.insert(current_op->input_tensors[j].d_tensor);
+    //             }
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 global_id = j;
+    //             }
+    //         }
+    //         if (global_id!=-1)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
+    //         }
         
-        }
-        else if (current_op->type=="BatchMatMul")
-        {
-            if (current_op->input_tensors[0].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::BatchMatMul_Backward, current_op);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-            }
-            if (current_op->input_tensors[1].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::BatchMatMul_Backward, current_op);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);                
-                kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
-            }
+    //     }
+    //     else if (current_op->type=="BatchMatMul")
+    //     {
+    //         if (current_op->input_tensors[0].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::BatchMatMul_Backward, current_op);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //         }
+    //         if (current_op->input_tensors[1].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::BatchMatMul_Backward, current_op);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);                
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
+    //         }
 
-            int global_id = -1;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    global_id = j;
-                }
-            }
-            if (global_id!=-1)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
-            }
-        }
-        else if (current_op->type=="Divide")
-        {
-            if (current_op->input_tensors[0].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Divide_Backward_A, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-            }
-            if (current_op->input_tensors[1].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Divide_Backward_B, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
-                kernel_list.back().inputs.insert(current_op->output_tensor);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
-            }
+    //         int global_id = -1;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 global_id = j;
+    //             }
+    //         }
+    //         if (global_id!=-1)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
+    //         }
+    //     }
+    //     else if (current_op->type=="Divide")
+    //     {
+    //         if (current_op->input_tensors[0].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Divide_Backward_A, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //         }
+    //         if (current_op->input_tensors[1].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Divide_Backward_B, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
+    //             kernel_list.back().inputs.insert(current_op->output_tensor);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
+    //         }
 
-            int global_id = -1;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    global_id = j;
-                }
-            }
-            if (global_id!=-1)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
-            }
-        }
-        else if (current_op->type=="Multiply")
-        {
-            if (current_op->input_tensors[0].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Multiply_Backward, current_op);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-            }
-            if (current_op->input_tensors[1].d_tensor)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Multiply_Backward, current_op);
-                kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-                kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);                
-                kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
-            }
+    //         int global_id = -1;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 global_id = j;
+    //             }
+    //         }
+    //         if (global_id!=-1)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
+    //         }
+    //     }
+    //     else if (current_op->type=="Multiply")
+    //     {
+    //         if (current_op->input_tensors[0].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Multiply_Backward, current_op);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //         }
+    //         if (current_op->input_tensors[1].d_tensor)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Multiply_Backward, current_op);
+    //             kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);                
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[1].d_tensor);
+    //         }
 
-            int global_id = -1;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    global_id = j;
-                }
-            }
-            if (global_id!=-1)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
-            }
-        }
-        else if (current_op->type=="Power")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Power_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
-            Assert(current_op->input_tensors[0].d_tensor);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="SoftmaxBasic")
-        {
-            kernel_list.emplace_back(CUDAKernelType::SoftmaxBasic_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="Sqrt")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Sqrt_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="Subtract")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Subtract_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            int global_id = -1;
-            for (int j = 0; j < current_op->input_num; j++)
-            {
-                if (current_op->input_tensors[j].d_tensor)
-                {
-                    kernel_list.back().outputs.insert(current_op->input_tensors[j].d_tensor);
-                }
-                if (current_op->input_tensors[j].tensor->is_global_weight)
-                {
-                    global_id = j;
-                }
-            }
-            if (global_id!=-1)
-            {
-                kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
-                kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
-                kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
-            }
-        }
-        else if (current_op->type=="Sum")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Sum_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="Tanh")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Tanh_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else if (current_op->type=="Erf")
-        {
-            kernel_list.emplace_back(CUDAKernelType::Erf_Backward, current_op);
-            kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
-            kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
-            kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
-        }
-        else{
-            exit(1);
-        }
+    //         int global_id = -1;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 global_id = j;
+    //             }
+    //         }
+    //         if (global_id!=-1)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
+    //         }
+    //     }
+    //     else if (current_op->type=="Power")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Power_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[1].tensor);
+    //         Assert(current_op->input_tensors[0].d_tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="SoftmaxBasic")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::SoftmaxBasic_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Sqrt")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Sqrt_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Subtract")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Subtract_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         int global_id = -1;
+    //         for (int j = 0; j < current_op->input_num; j++)
+    //         {
+    //             if (current_op->input_tensors[j].d_tensor)
+    //             {
+    //                 kernel_list.back().outputs.insert(current_op->input_tensors[j].d_tensor);
+    //             }
+    //             if (current_op->input_tensors[j].tensor->is_global_weight)
+    //             {
+    //                 global_id = j;
+    //             }
+    //         }
+    //         if (global_id!=-1)
+    //         {
+    //             kernel_list.emplace_back(CUDAKernelType::Apply_Grad, current_op);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].tensor);
+    //             kernel_list.back().inputs.insert(current_op->input_tensors[global_id].d_tensor);
+    //             kernel_list.back().outputs.insert(current_op->input_tensors[global_id].tensor);
+    //         }
+    //     }
+    //     else if (current_op->type=="Sum")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Sum_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Tanh")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Tanh_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Erf")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Erf_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else if (current_op->type=="Spread")
+    //     {
+    //         kernel_list.emplace_back(CUDAKernelType::Spread_Backward, current_op);
+    //         kernel_list.back().inputs.insert(current_op->d_output_tensors[0]);
+    //         kernel_list.back().inputs.insert(current_op->input_tensors[0].tensor);
+    //         kernel_list.back().outputs.insert(current_op->input_tensors[0].d_tensor);
+    //     }
+    //     else{
+    //         exit(1);
+    //     }
         
-    }
+    // }
 }
 
 

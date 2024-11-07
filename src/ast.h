@@ -447,7 +447,7 @@ struct OP_tensor
 
 typedef enum{
   GatherV2, Dot, Relu, Add, BatchMatMul, Divide, Multiply, Power, SoftmaxBasic,
-   Sqrt, Subtract, Sum, Tanh, Convolution, MaxPool5, Erf
+   Sqrt, Subtract, Sum, Tanh, Convolution, MaxPool5, Erf, Spread
 } ModelOP_type;
 
 class Model_OP

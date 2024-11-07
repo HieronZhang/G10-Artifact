@@ -611,6 +611,7 @@ void grouped_run(cudnnHandle_t& cudnn, string input_filename, bool is_UVM) {
         else if (algo == "Subtract_Forward")            p = new Add                (cudnn, args, is_UVM); 
         else if (algo == "Subtract_Backward")           p = new Add_Backward       (cudnn, args, is_UVM); 
         else if (algo == "Apply_Grad")                  p = new ApplyGrad          (cudnn, args, is_UVM); 
+        else if (algo == "Spread_Forward")              p = new Spread_Forward     (cudnn, args, is_UVM);
         else                                            ASSERT(false, algo);
 
         kernel_profile_array.push_back(p);
@@ -773,6 +774,7 @@ void grouped_get_workspace_size(cudnnHandle_t& cudnn, string input_filename) {
         else if (algo == "Subtract_Forward")            p = new Add                (cudnn, args, 1); 
         else if (algo == "Subtract_Backward")           p = new Add_Backward       (cudnn, args, 1); 
         else if (algo == "Apply_Grad")                  p = new ApplyGrad          (cudnn, args, 1); 
+        else if (algo == "Spread_Forward")              p = new Spread_Forward     (cudnn, args, 1);
         else                                            ASSERT(false, algo);
         printf("%0*d %lu B\n", total_size, kernel_num++, p->getWorkspaceSize());
         delete p;

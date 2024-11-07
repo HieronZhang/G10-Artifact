@@ -64,6 +64,19 @@ __global__ void gather(float *output_data, float *input_data, long N) {
 }
 
 
+__global__ void spread(float *output_data, float *input_data, long N, long n) {
+    const long thread_pos = blockIdx.x * blockDim.x + threadIdx.x;
+    const long parallel_size = blockDim.x * gridDim.x;
+    
+    for (long i = 0; i < N; i += parallel_size) {
+        long idx = i + thread_pos;
+        if (idx < N) {
+            output_data[idx] = input_data[idx%n];
+        }
+    }
+}
+
+
 
 __global__ void divide(float *output_data, float *input_dataA, float *input_dataB, long N) {
     const long thread_pos = blockIdx.x * blockDim.x + threadIdx.x;
@@ -378,13 +391,14 @@ Add::~Add() {
         for (int i = 0; i < num_input; i++)
             CUDA_CALL(cudaFree(input_data[i]));
         CUDA_CALL(cudaFree(output_data));
+        CUDA_CALL(cudaFree(device_input_data));
+        free(input_data);
     }
-    CUDA_CALL(cudaFree(device_input_data));
-    free(input_data);
 }
 
 float Add::Run() {
     if (is_UVM) {
+        cudaDeviceSynchronize();
         // CUDA_CALL(cudaMallocManaged(&input_data, (long) num_input * sizeof(float *)));
         // CUDA_CALL(cudaMallocManaged(&device_input_data, (long) num_input * sizeof(float *)));
         // CUDA_CALL(cudaMemcpy(device_input_data, input_data, (long) num_input * sizeof(float *), cudaMemcpyHostToDevice));
@@ -481,6 +495,8 @@ Divide_Forward::~Divide_Forward() {
 
 float Divide_Forward::Run() {
     if (is_UVM) {
+
+        cudaDeviceSynchronize();
 
         if (allocation_map.find(input_a_indicator) != allocation_map.end()) {
             input_a = allocation_map[input_a_indicator];
@@ -686,6 +702,8 @@ Multiply::~Multiply() {
 
 float Multiply::Run() {
     if (is_UVM) {
+
+        cudaDeviceSynchronize();
 
         if (allocation_map.find(inputA_indicator) != allocation_map.end()) {
             inputA = allocation_map[inputA_indicator];
@@ -1257,6 +1275,78 @@ float Erf_Forward::Run() {
 
 
 
+Spread_Forward::Spread_Forward(cudnnHandle_t handle, vector<double> &args, bool is_UVM) : 
+        handle(handle), is_UVM(is_UVM) {
+    // 0. length     1. batch_size   2. num_threads
+    n          = args[0];   N = args[1]; batch_size = args[2];   num_threads= args[3];
+    input_indicator = args[4]; output_indicator = args[5];
+    input_ratio = args[6]; output_ratio = args[7];
+    // Alloc
+    if (!is_UVM) {
+        CUDA_CALL(cudaMalloc(&output, (long) N * sizeof(float)));
+        CUDA_CALL(cudaMalloc(&input, (long) N * sizeof(float)));
+
+        GPUFillRand(output, (long) N * sizeof(float));
+        GPUFillRand(input, (long) N * sizeof(float));
+
+    }
+}
+
+Spread_Forward::~Spread_Forward() {
+    if (!is_UVM) {
+
+        CUDA_CALL(cudaFree(output));
+        CUDA_CALL(cudaFree(input));
+
+    }
+}
+
+float Spread_Forward::Run() {
+    if (is_UVM) {
+
+        if (allocation_map.find(input_indicator) != allocation_map.end()) {
+            input = allocation_map[input_indicator];
+        }
+        else
+        {
+            CUDA_CALL(cudaMallocManaged(&input, (long) n * sizeof(float)));
+            allocation_map[input_indicator] = input;
+        }
+
+        if (allocation_map.find(output_indicator) != allocation_map.end()) {
+            output = allocation_map[output_indicator];
+        }
+        else
+        {
+            CUDA_CALL(cudaMallocManaged(&output, (long) N * sizeof(float)));
+            allocation_map[output_indicator] = output;
+        }
+
+        // CUDA_CALL(cudaMallocManaged(&output, (long) N * sizeof(float)));
+        // CUDA_CALL(cudaMallocManaged(&input, (long) N * sizeof(float)));
+
+        // CPUFillRand(input, (long) N * sizeof(float));
+
+        // GPUFillRand(output, (long) N * sizeof(float) * output_ratio);
+        // GPUFillRand(input, (long) N * sizeof(float) * input_ratio);
+        cudaDeviceSynchronize();
+    }
+
+    float milliseconds = 0;
+    cudaEvent_t start, stop;
+    CUDA_CALL(cudaEventCreate(&start));
+    CUDA_CALL(cudaEventCreate(&stop));
+    
+    CUDA_CALL(cudaEventRecord(start));
+    spread<<<batch_size, num_threads>>>(output, input, N, n);
+    CUDA_CALL(cudaEventRecord(stop));
+    CUDA_CALL(cudaEventSynchronize(stop));
+
+    CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, stop));
+    
+    return milliseconds;
+}
+
 
 
 
@@ -1357,6 +1447,8 @@ Sum_Forward::~Sum_Forward() {
 
 float Sum_Forward::Run() {
     if (is_UVM) {
+
+        cudaDeviceSynchronize();
 
         if (allocation_map.find(input_indicator) != allocation_map.end()) {
             input_a = allocation_map[input_indicator];
@@ -1479,16 +1571,18 @@ GatherV2_Forward::GatherV2_Forward(cudnnHandle_t handle, vector<double> &args, b
 }
 
 GatherV2_Forward::~GatherV2_Forward() {
-    // if (!is_UVM) {
+    if (!is_UVM) {
 
         CUDA_CALL(cudaFree(output));
         CUDA_CALL(cudaFree(input));
 
-    // }
+    }
 }
 
 float GatherV2_Forward::Run() {
     if (is_UVM) {
+
+        cudaDeviceSynchronize();
 
         if (allocation_map.find(input_indicator)!=allocation_map.end()) {
             input = allocation_map[input_indicator];

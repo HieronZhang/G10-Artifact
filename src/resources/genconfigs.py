@@ -145,7 +145,6 @@ is_individual           {"1" if is_individual else "0"}
 is_cudnn                {"1" if is_cudnn else "0"}
 is_UVM                  {"0" if pf_mode == PF_MODE.NO_PF else "1"}
 is_input_pf_only        {"1" if pf_mode == PF_MODE.INPUT_PF else "0"}
-is_output_pf_only       {"1" if pf_mode == PF_MODE.OUTPUT_PF else "0"}
 
 {"is_transformer          1" if model in ["BERT", "VIT", "NeRF"] else ""}
 {"trans_borden            210" if model == "BERT" else "trans_borden            184" if model == "VIT" else "trans_borden            7" if model == "NeRF" else ""}
