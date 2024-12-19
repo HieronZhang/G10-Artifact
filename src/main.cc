@@ -101,6 +101,7 @@ extern std::vector<double> kernel_time_table;
 
 // output specifications
 std::string nn_model_input_file;
+std::string semantic_in_dir;
 std::string orig_kernel_time_file;
 std::string input_pf_kernel_time_file;
 std::string workspace_size_file;
@@ -445,6 +446,7 @@ int main(int argc, char *argv[]) {
         else if (command == "is_UVM")                   { is_UVM = std::stoi(value) != 0; }
         else if (command == "use_prefetch")             { use_prefetch = std::stoi(value) != 0; }
         else if (command == "nn_model_input_file")      { nn_model_input_file = value; }
+        else if (command == "input_directory")          { semantic_in_dir = value; }
         else if (command == "orig_kernel_time_file")    { orig_kernel_time_file = value; }
         else if (command == "workspace_size_file")      { workspace_size_file = value; }
         else if (command == "input_pf_kernel_time_file"){ input_pf_kernel_time_file = value; }
@@ -490,7 +492,7 @@ int main(int argc, char *argv[]) {
     // indirection if there is no file is fed through stdin
     if (isatty(fileno(stdin))) {
       if (nn_model_input_file.empty()) {
-        eprintf("No input NN model in either stdin or config file\n", "");
+        // eprintf("No input NN model in either stdin or config file\n", "");
       } else {
         // open a file and redirect to stdin
         std::ifstream nn_model(nn_model_input_file.c_str());
@@ -567,7 +569,7 @@ int main(int argc, char *argv[]) {
     SetupOutputFolder();
 
 
-    parse_temperal("semantics.in");
+    parse_temperal(semantic_in_dir.c_str());
 
     migration_plan_output.open("migration_plan.txt");
 
@@ -780,44 +782,45 @@ int main(int argc, char *argv[]) {
             }
             
 
-            GDS_Baseline_Type sim_type;
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                sim_type = GDS_Baseline_Type::FlashNeuron;
-            }
-            else if (migration_policy_str=="G10GDSSSD")
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_SSD;
-            }
-            else
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_FULL;
-            }
+            // GDS_Baseline_Type sim_type;
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     sim_type = GDS_Baseline_Type::FlashNeuron;
+            // }
+            // else if (migration_policy_str=="G10GDSSSD")
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_SSD;
+            // }
+            // else
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_FULL;
+            // }
         
-            FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
-            sim.run();
-            double time_ = sim.total_sim_time;
-            std::string info_file = output_folder_name + "/sim_result.final";
-            std::ofstream foout(info_file);
-            foout<<"total_exe_time = "<<time_<<std::endl; 
-            foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
-            foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
-            foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
-            foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
-            foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
-            std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
-            std::ofstream fooout(info_file2);
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
-                {
-                    fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
-                }
-            }
+            // FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
+            // sim.run();
+            // double time_ = sim.total_sim_time;
+            // std::string info_file = output_folder_name + "/sim_result.final";
+            // std::ofstream foout(info_file);
+            // foout<<"total_exe_time = "<<time_<<std::endl; 
+            // foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
+            // foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
+            // foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
+            // foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
+            // foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
+            // std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
+            // std::ofstream fooout(info_file2);
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
+            //     {
+            //         fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
+            //     }
+            // }
             
-            migration_plan_output.close();
+            // migration_plan_output.close();
             
-            return 0;
+            // return 0;
+            goto Here;
         }
 
         // eviction guide
@@ -835,7 +838,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
         
-
+Here:
         // real memory usage
         r = new RedirStdOut("real_mem.config");
         print_GPU_mem_really_in_use();
@@ -979,7 +982,7 @@ int main(int argc, char *argv[]) {
         
 /***********************************Getting Motivation Number   End***************************************/
 
-        return 0;
+        // return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);

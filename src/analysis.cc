@@ -5559,10 +5559,10 @@ void parse_temperal(std::string input_file){
         }
         // if (!is_meta_tensor)
         // {
-        Tensor* new_tensor = new Tensor(size, tensor_id, global_tensor_ids.find(tensor_id)!=global_tensor_ids.end());
-        tensor_list.push_back(new_tensor);
-        std::cout<<"Tensor "<<new_tensor->tensor_id<<" has been created!"<<std::endl;
-        new_tensor->print();
+            Tensor* new_tensor = new Tensor(size, tensor_id, global_tensor_ids.find(tensor_id)!=global_tensor_ids.end());
+            tensor_list.push_back(new_tensor);
+            std::cout<<"Tensor "<<new_tensor->tensor_id<<" has been created!"<<std::endl;
+            new_tensor->print();
         // }
     }
 
@@ -5578,7 +5578,7 @@ void parse_temperal(std::string input_file){
         fin >> kernel_id;
         fin >> kernel_times[i];
         fin >> gar;
-        std::cout<<"Kernel "<<i<<" exe time: "<<kernel_times[i]<<std::endl;
+        // std::cout<<"Kernel "<<i<<" exe time: "<<kernel_times[i]<<std::endl;
         iter_time += kernel_times[i];
     }
 
@@ -5600,7 +5600,7 @@ void parse_temperal(std::string input_file){
         }
         kernel_list.emplace_back(type, i, kernel_times[i]);
         // kernel_list[i].print();
-        std::cout<<kernel_list[i].execution_cycles<<std::endl;
+        // std::cout<<kernel_list[i].execution_cycles<<std::endl;
     }
 
     for (size_t i = 0; i < n_tensors; i++)
@@ -5618,6 +5618,7 @@ void parse_temperal(std::string input_file){
         if (it->size_in_byte == 0)
         {
             std::remove(tensor_list.begin(), tensor_list.end(), it), tensor_list.end();
+            tensor_list.resize(tensor_list.size()-1);
         }
     }
 
