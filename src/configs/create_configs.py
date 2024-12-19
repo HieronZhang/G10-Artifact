@@ -13,7 +13,7 @@ for model_i in [0]:
     # for rank in ranks:
     for pcie in pcie_array:
         for cpu_size in cpu_sizes:
-            filename = model_name[model_i] + "-" + f"ssd{pcie}-cpu{cpu_size}"
+            filename = model_name[model_i] + "/" + f"ssd{pcie}-cpu{cpu_size}"
             with open(filename+".config", 'w') as fout:
                 content = f"""
 output_folder           ../results/{filename}
