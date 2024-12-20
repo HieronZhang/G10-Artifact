@@ -7,7 +7,7 @@ ranks = ["rank0", "rank2", "rank4", "rank6"]
 
 cpu_sizes = ["0", "80", "160"]
 
-pcie_array = [4, 8, 12]
+pcie_array = [4, 8, 12, 16]
 
 for model_i in [0]:
     # for rank in ranks:

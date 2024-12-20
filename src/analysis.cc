@@ -3290,7 +3290,7 @@ void scheduling_prefetch(){
                 {
                     if (kernel_time_table[j] <= pre_alloc_start_time_precise && kernel_time_table[j+1] > pre_alloc_start_time_precise)
                     {
-                        if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL"){
+                        if (migration_policy_str!="G10GDSSSD_D" && migration_policy_str!="G10GDSFULL"){
                             DataMovementHint pre_allo(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, j, curr_tensor);
                             movement_hints.push_back(pre_allo);
                         }
@@ -3315,7 +3315,7 @@ void scheduling_prefetch(){
                 death_index = curr_tensor->live_interval[0] + 1;
             }
             
-            if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL"){
+            if (migration_policy_str!="G10GDSSSD_D" && migration_policy_str!="G10GDSFULL"){
                 DataMovementHint pre_dallo(PageLocation::NOT_KNOWN, PageLocation::NOT_PRESENT, death_index, curr_tensor);
                 movement_hints.push_back(pre_dallo);
             }
