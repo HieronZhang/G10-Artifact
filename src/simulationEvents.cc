@@ -279,8 +279,8 @@ unsigned long KernelBeginEvent::getPageFaultTime(PageFaultInfo &info) {
   //                   (int) sim_sys->system_latency, (int) sim_sys->SSD_latency,
   //                   deltaT_PF, BW_ssd_rest, BW_pcie_rest);
 
-  double ssd_transfer_time_ms = (double) (input_tensor_size * input_pf_ratio * input_pf_SSD_ratio + output_tensor_size * output_pf_ratio * output_pf_SSD_ratio) / (sim_sys->SSD_PCIe_bandwidth_Bpc) * 1000;
-  double pcie_transfer_time_ms = (double) (input_tensor_size * input_pf_ratio + output_tensor_size * output_pf_ratio) / (sim_sys->GPU_PCIe_bandwidth_Bpc) * 1000;
+  double ssd_transfer_time_ms = (double) ((info.SSD_to_GPU_faulted_input_pages + info.SSD_to_GPU_faulted_output_pages) * 4096 / (sim_sys->SSD_PCIe_bandwidth_Bpc)) / (sim_sys->GPU_frequency_Hz) * 1000;
+  double pcie_transfer_time_ms = (double) ((info.CPU_to_GPU_faulted_input_pages + info.CPU_to_GPU_faulted_output_pages) * 4096 / (sim_sys->GPU_PCIe_bandwidth_Bpc - sim_sys->SSD_PCIe_bandwidth_Bpc)) / (sim_sys->GPU_frequency_Hz) * 1000;
   deltaT_PF = max(ssd_transfer_time_ms, pcie_transfer_time_ms);
                     
   unsigned long delta_cycle = deltaT_PF / pow(10, 3) * sim_sys->GPU_frequency_Hz;
