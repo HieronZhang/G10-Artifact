@@ -267,15 +267,22 @@ unsigned long KernelBeginEvent::getPageFaultTime(PageFaultInfo &info) {
       info.CPU_to_GPU_faulted_input_pages, info.SSD_to_GPU_faulted_input_pages,
       info.CPU_to_GPU_faulted_output_pages, info.SSD_to_GPU_faulted_output_pages,
       input_pf_ratio, output_pf_ratio, input_pf_SSD_ratio, output_pf_SSD_ratio);
-  performance_model(kernel->pf_execution_cycles / sim_sys->GPU_frequency_Hz * 1000, 
-                    kernel->input_pf_execution_cycles / sim_sys->GPU_frequency_Hz * 1000, 
-                    kernel->execution_cycles / sim_sys->GPU_frequency_Hz * 1000,
-                    input_pf_ratio, output_pf_ratio, input_pf_SSD_ratio, output_pf_SSD_ratio,
-                    input_tensor_size, output_tensor_size,
-                    sim_sys->GPU_PCIe_bandwidth_Bpc * sim_sys->GPU_frequency_Hz / 1000, 
-                    sim_sys->SSD_PCIe_bandwidth_Bpc * sim_sys->GPU_frequency_Hz / 1000,
-                    (int) sim_sys->system_latency, (int) sim_sys->SSD_latency,
-                    deltaT_PF, BW_ssd_rest, BW_pcie_rest);
+
+
+  // performance_model(kernel->pf_execution_cycles / sim_sys->GPU_frequency_Hz * 1000, 
+  //                   kernel->input_pf_execution_cycles / sim_sys->GPU_frequency_Hz * 1000, 
+  //                   kernel->execution_cycles / sim_sys->GPU_frequency_Hz * 1000,
+  //                   input_pf_ratio, output_pf_ratio, input_pf_SSD_ratio, output_pf_SSD_ratio,
+  //                   input_tensor_size, output_tensor_size,
+  //                   sim_sys->GPU_PCIe_bandwidth_Bpc * sim_sys->GPU_frequency_Hz / 1000, 
+  //                   sim_sys->SSD_PCIe_bandwidth_Bpc * sim_sys->GPU_frequency_Hz / 1000,
+  //                   (int) sim_sys->system_latency, (int) sim_sys->SSD_latency,
+  //                   deltaT_PF, BW_ssd_rest, BW_pcie_rest);
+
+  double ssd_transfer_time_ms = (double) (input_tensor_size * input_pf_ratio * input_pf_SSD_ratio + output_tensor_size * output_pf_ratio * output_pf_SSD_ratio) / (sim_sys->SSD_PCIe_bandwidth_Bpc) * 1000;
+  double pcie_transfer_time_ms = (double) (input_tensor_size * input_pf_ratio + output_tensor_size * output_pf_ratio) / (sim_sys->GPU_PCIe_bandwidth_Bpc) * 1000;
+  deltaT_PF = max(ssd_transfer_time_ms, pcie_transfer_time_ms);
+                    
   unsigned long delta_cycle = deltaT_PF / pow(10, 3) * sim_sys->GPU_frequency_Hz;
   nprintf("    Model predicts %f ms %lld cycles, total %lld cycles\n", 
       deltaT_PF, delta_cycle, delta_cycle + kernel->execution_cycles);
