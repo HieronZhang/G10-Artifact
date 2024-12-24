@@ -3897,7 +3897,7 @@ void scheduling_prefetch(){
                     curr_interval->is_really_offloaded = true;
 
                     DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, prefetch_start_index % kernel_num, curr_interval->the_tensor);
-                    pre_fetch.barrier_end_time = curr_interval->is_looped ? (curr_interval->kernelLevel_interval[1] + kernel_num -1) : (curr_interval->kernelLevel_interval[1] -1);
+                    pre_fetch.barrier_end_time = curr_interval->is_looped ? (((curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num) > (prefetch_start_index % kernel_num) ? ((curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num) : (curr_interval->kernelLevel_interval[1] + kernel_num -1) ) : (curr_interval->kernelLevel_interval[1] -1);
                     movement_hints.push_back(pre_fetch);
                 }
                 
@@ -4172,7 +4172,7 @@ void scheduling_prefetch(){
         
         
         DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, iindx%kernel_num, current_interv->the_tensor);
-        pre_fetch.barrier_end_time = current_interv->is_looped ? (current_interv->kernelLevel_interval[1] + kernel_num -1 ) : (current_interv->kernelLevel_interval[1] -1);
+        pre_fetch.barrier_end_time = current_interv->is_looped ? (((current_interv->kernelLevel_interval[1] + kernel_num -1)%kernel_num) > (iindx%kernel_num) ? ((current_interv->kernelLevel_interval[1] + kernel_num -1)%kernel_num) : (current_interv->kernelLevel_interval[1] + kernel_num -1) ) : (current_interv->kernelLevel_interval[1] -1);
         movement_hints.push_back(pre_fetch);
 
         //plus mem
@@ -5586,7 +5586,7 @@ void parse_temperal(std::string input_file){
         fin >> kernel_id;
         fin >> kernel_times[i];
         fin >> gar;
-        std::cout<<"Kernel "<<i<<" exe time: "<<kernel_times[i]<<std::endl;
+        // std::cout<<"Kernel "<<i<<" exe time: "<<kernel_times[i]<<std::endl;
         iter_time += kernel_times[i];
     }
 
@@ -5608,7 +5608,7 @@ void parse_temperal(std::string input_file){
         }
         kernel_list.emplace_back(type, i, kernel_times[i]);
         // kernel_list[i].print();
-        std::cout<<kernel_list[i].execution_cycles<<std::endl;
+        // std::cout<<kernel_list[i].execution_cycles<<std::endl;
     }
 
     for (size_t i = 0; i < n_tensors; i++)
@@ -5626,6 +5626,7 @@ void parse_temperal(std::string input_file){
         if (it->size_in_byte == 0)
         {
             std::remove(tensor_list.begin(), tensor_list.end(), it), tensor_list.end();
+            tensor_list.resize(tensor_list.size()-1);
         }
     }
 
@@ -5638,6 +5639,4 @@ void parse_temperal(std::string input_file){
     // }
     
 }
-
-
 
