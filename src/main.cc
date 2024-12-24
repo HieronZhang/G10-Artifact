@@ -778,42 +778,44 @@ int main(int argc, char *argv[]) {
                 print_prefetch_table();
                 delete r;
             }
+
+            // return 0;
             
 
-            GDS_Baseline_Type sim_type;
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                sim_type = GDS_Baseline_Type::FlashNeuron;
-            }
-            else if (migration_policy_str=="G10GDSSSD")
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_SSD;
-            }
-            else
-            {
-                sim_type = GDS_Baseline_Type::G10_GDS_FULL;
-            }
+            // GDS_Baseline_Type sim_type;
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     sim_type = GDS_Baseline_Type::FlashNeuron;
+            // }
+            // else if (migration_policy_str=="G10GDSSSD")
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_SSD;
+            // }
+            // else
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_FULL;
+            // }
         
-            FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
-            sim.run();
-            double time_ = sim.total_sim_time;
-            std::string info_file = output_folder_name + "/sim_result.final";
-            std::ofstream foout(info_file);
-            foout<<"total_exe_time = "<<time_<<std::endl; 
-            foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
-            foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
-            foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
-            foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
-            foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
-            std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
-            std::ofstream fooout(info_file2);
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
-                {
-                    fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
-                }
-            }
+            // FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
+            // sim.run();
+            // double time_ = sim.total_sim_time;
+            // std::string info_file = output_folder_name + "/sim_result.final";
+            // std::ofstream foout(info_file);
+            // foout<<"total_exe_time = "<<time_<<std::endl; 
+            // foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
+            // foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
+            // foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
+            // foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
+            // foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
+            // std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
+            // std::ofstream fooout(info_file2);
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
+            //     {
+            //         fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
+            //     }
+            // }
             
             migration_plan_output.close();
             
