@@ -3637,6 +3637,7 @@ void scheduling_prefetch(){
                         DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_CPU, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                         pre_evict.barrier_end_time = pcie_eviction_clear_index;
                         movement_hints.push_back(pre_evict);
+                        //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                         curr_interval->the_tensor->is_choosed_to_evict = true;
                         curr_interval->is_really_offloaded = true;
 
@@ -3752,6 +3753,7 @@ void scheduling_prefetch(){
                     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                     pre_evict.barrier_end_time = pcie_eviction_clear_index;
                     movement_hints.push_back(pre_evict);
+                    //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                     curr_interval->the_tensor->is_choosed_to_evict = true;
                     curr_interval->is_really_offloaded = true;
 
@@ -3835,6 +3837,7 @@ void scheduling_prefetch(){
                     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_CPU, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                     pre_evict.barrier_end_time = pcie_eviction_clear_index;
                     movement_hints.push_back(pre_evict);
+                    //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                     curr_interval->the_tensor->is_choosed_to_evict = true;
                     curr_interval->is_really_offloaded = true;
 
@@ -3893,12 +3896,14 @@ void scheduling_prefetch(){
                     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_CPU, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                     pre_evict.barrier_end_time = eviction_clear_index;
                     movement_hints.push_back(pre_evict);
+                    //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                     curr_interval->the_tensor->is_choosed_to_evict = true;
                     curr_interval->is_really_offloaded = true;
 
                     DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, prefetch_start_index % kernel_num, curr_interval->the_tensor);
                     pre_fetch.barrier_end_time = curr_interval->is_looped ? (((curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num) > (prefetch_start_index % kernel_num) ? ((curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num) : (curr_interval->kernelLevel_interval[1] + kernel_num -1) ) : (curr_interval->kernelLevel_interval[1] -1);
                     movement_hints.push_back(pre_fetch);
+                    //Pre-fetch tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<prefetch_start_index % kernel_num<<std::endl;
                 }
                 
 
@@ -3978,6 +3983,7 @@ void scheduling_prefetch(){
         DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, iindx%kernel_num, current_interv->the_tensor);
         pre_fetch.barrier_end_time = current_interv->is_looped ? (((current_interv->kernelLevel_interval[1] + kernel_num -1)%kernel_num) > (iindx%kernel_num) ? ((current_interv->kernelLevel_interval[1] + kernel_num -1)%kernel_num) : (current_interv->kernelLevel_interval[1] + kernel_num -1) ) : (current_interv->kernelLevel_interval[1] -1);
         movement_hints.push_back(pre_fetch);
+        //Pre-fetch tensor "<<current_interv->the_tensor->tensor_id<<" at kernel ID "<<iindx%kernel_num<<std::endl;
 
         //plus mem
         for (int j = iindx; j < current_interv->original_prefetch_index; j++)
@@ -4132,10 +4138,14 @@ void scheduling_prefetch(){
             DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
             pre_evict.barrier_end_time = curr_interval->kernelLevel_interval[0];
             movement_hints.push_back(pre_evict);
+            curr_interval->the_tensor->is_choosed_to_evict = true;
+            curr_interval->is_really_offloaded = true;
+            //@Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
 
             DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, curr_interval->kernelLevel_interval[1]-1, curr_interval->the_tensor);
             pre_fetch.barrier_end_time = curr_interval->kernelLevel_interval[1]-1;
             movement_hints.push_back(pre_fetch);
+            //@Pre-fetch tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[1]-1<<std::endl;
 
 
             //minus mem
@@ -4149,10 +4159,14 @@ void scheduling_prefetch(){
             DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
             pre_evict.barrier_end_time = curr_interval->kernelLevel_interval[0];
             movement_hints.push_back(pre_evict);
+            curr_interval->the_tensor->is_choosed_to_evict = true;
+            curr_interval->is_really_offloaded = true;
+            //@Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
 
             DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, (curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num, curr_interval->the_tensor);
             pre_fetch.barrier_end_time = (curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num;
             movement_hints.push_back(pre_fetch);
+            //@Pre-fetch tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<(curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num<<std::endl;
 
             //minus mem
             for (int j = curr_interval->kernelLevel_interval[0] + 1; j < curr_interval->kernelLevel_interval[1] + kernel_num; j++)
@@ -4255,6 +4269,11 @@ void print_GPU_mem_estimation(string addi){
         }
     }
     std::cout<<addi<<"_max = "<<max<<std::endl;
+}
+
+
+void print_interation_time(){
+    std::cout<<"iteration_time = "<<kernel_time_table[kernel_num]<<std::endl;
 }
 
 
