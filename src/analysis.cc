@@ -3922,7 +3922,7 @@ void scheduling_prefetch(){
     std::cout<<"cold_iter = "<<cold_period_iter<<std::endl;
 
     // std::cout << "After PCIE-aware Offloading" << std::endl;
-    print_GPU_mem_estimation("pcie-aware-offloaded");
+    print_GPU_mem_estimation("pcie_aware_offloaded");
 
 
 
