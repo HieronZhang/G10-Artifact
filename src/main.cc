@@ -107,6 +107,7 @@ std::string workspace_size_file;
 std::string pf_kernel_time_file;
 std::string stat_output_file;
 std::string output_folder_name;
+std::string input_semantic_filename = "semantics.in";
 // simulation switches
 bool is_simulation = true;
 bool output_override = false;
@@ -420,6 +421,7 @@ int main(int argc, char *argv[]) {
 
         // general settings
         if (command == "output_folder")                 { output_folder_name = value; }
+        else if (command == "input_directory")          { input_semantic_filename = value; }
         else if (command == "output_override")          { output_override = std::stoi(value) != 0; }
         else if (command == "is_simulation")            { is_simulation = std::stoi(value) != 0; }
         else if (command == "is_profiling")             { is_simulation = std::stoi(value) == 0; }
@@ -567,7 +569,7 @@ int main(int argc, char *argv[]) {
     SetupOutputFolder();
 
 
-    parse_temperal("semantics.in");
+    parse_temperal(input_semantic_filename.c_str());
 
     migration_plan_output.open("migration_plan.txt");
 
@@ -721,7 +723,171 @@ int main(int argc, char *argv[]) {
 
 
         give_eviction_guide();
+
+
+
+
+/***********************************Getting Motivation Number***************************************/
+        string argv1 = output_folder_name;
+        string filenaeme;
+        filenaeme = argv1+"_NNMemConsumptionLog.py";
+        printf("%s\n", filenaeme.c_str());
+        std::ofstream motiv_1(filenaeme);
+
+        motiv_1<<"active = [";
+        for (auto it = kernel_list.begin(); it != kernel_list.end(); ++it) {
+            CUDAKernel *current_kernel = &(*it);
+            vector<Tensor *> required_tensors;
+            current_kernel->getRequiredTensors(required_tensors);
+            long num_bytes = 0;
+            for (Tensor *tensor : required_tensors) {
+                num_bytes += std::ceil((float) tensor->size_in_byte);
+            }
+            num_bytes = (num_bytes==0) ? 4096 : num_bytes;
+            motiv_1<<num_bytes<<",";
+        }
+
+        motiv_1<<"]\n";
+
+        motiv_1 << "active_breakdown = [";
+        for (auto it = kernel_list.begin(); it != kernel_list.end(); ++it) {
+            CUDAKernel *current_kernel = &(*it);
+            vector<Tensor *> inputs, weights, intermediates;
+            current_kernel->getTensorBreakdown(inputs, weights, intermediates);
+            long input_bytes = 0, weight_bytes = 0, intermediate_bytes = 0;
+            for (Tensor *tensor : inputs)
+                input_bytes += std::ceil((float) tensor->size_in_byte);
+            for (Tensor *tensor : weights)
+                weight_bytes += std::ceil((float) tensor->size_in_byte);
+            for (Tensor *tensor : intermediates)
+                intermediate_bytes += std::ceil((float) tensor->size_in_byte);
+            motiv_1<< "(" << input_bytes << "," << weight_bytes << "," << intermediate_bytes << "),";
+        }
+
+        motiv_1<<"]\n";
+
+
+        std::vector<long> GPU_pressure_memory_estimation;
+        GPU_pressure_memory_estimation.resize(kernel_list.size());
+        long total_global_size;
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            GPU_pressure_memory_estimation[i] = memory_offset_intermediate + memory_offset_weights + tensor_list[0]->size_in_byte;
+        }
+        for (int i = 0; i < tensor_list.size(); i++)
+        {
+            if (!tensor_list[i]->is_global_weight)
+            {
+                for (int j = 0; j < tensor_list[i]->live_interval[0]; j++)
+                {
+                    GPU_pressure_memory_estimation[j] -= tensor_list[i]->size_in_byte;
+                }
+                int death;
+                if (tensor_list[i]->live_interval[1]==-1)
+                {
+                    death = tensor_list[i]->live_interval[0]+1;
+                }else
+                {
+                    death = tensor_list[i]->live_interval[1];
+                }
+                
+                for (int j = death; j < kernel_list.size(); j++)
+                {
+                    GPU_pressure_memory_estimation[j] -= tensor_list[i]->size_in_byte;
+                }   
+            }
+        }
+
+        motiv_1 << "total = [";
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            motiv_1<<GPU_pressure_memory_estimation[i]<<",";
+        }
+        motiv_1<<"]\n";
+
+        motiv_1 << "time_table = ["; //unit: us
+        for (int i = 0; i < kernel_list.size(); i++) {
+            motiv_1 << kernel_time_table[i+1] << ",";
+        }
+        motiv_1 << "]\n";
+
+        //loop the total list to find maximum indexs
+        vector<int> max_indexs;
+        long max_value = 0;
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            if (GPU_pressure_memory_estimation[i] > max_value)
+            {
+                max_value = GPU_pressure_memory_estimation[i];
+            }
+        }
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            if (GPU_pressure_memory_estimation[i] > max_value - 30000000000)
+            {
+                max_indexs.push_back(i);
+            }
+        }
+
+        //sort the vector
+        std::sort(max_indexs.begin(), max_indexs.end());
+        double time_stride = (kernel_time_table[max_indexs[0]+1]-0);
+        motiv_1 << "time_stride = " << time_stride << "\n";
+        motiv_1 << "memory_stride = " << max_value - 80*1024*1024*1024 << "\n";
+
+        motiv_1 << "global_weight = " << memory_offset_weights << "\n";
+        motiv_1 << "input_size = " << tensor_list[0]->size_in_byte << "\n";
         
+        motiv_1.close();
+
+        filenaeme = argv1+"_TensorPeriodLog.py";
+        // double sd_buffer[500];
+        // int buffer_count = 0;
+
+        std::ofstream motiv_2(filenaeme);
+        motiv_2 << "sd_size = [";
+        for (int i = 0; i < interval_list.size(); i++)
+        {
+            motiv_2<<interval_list[i]->the_tensor->size_in_byte;
+            motiv_2<<", ";
+        }
+        motiv_2<<"]\n";
+        motiv_2 << "sd_time = [";
+        for (int i = 0; i < interval_list.size(); i++)
+        {
+            // if (interval_list[i]->time_estimated < 500)
+            // {
+            //     if (buffer_count < 500)
+            //     {
+            //         sd_buffer[buffer_count] = interval_list[i]->time_estimated;
+            //         buffer_count++;
+            //         motiv_2<<interval_list[i]->time_estimated;
+            //         motiv_2<<", ";
+            //     }
+            // }
+            // else
+            // {
+                motiv_2<<interval_list[i]->time_estimated;
+                motiv_2<<", ";
+            // }
+        }
+        motiv_2<<"]\n";
+        motiv_2 << "# ";
+        for (int i = 0; i < interval_list.size(); i++)
+        {
+            motiv_2<<interval_list[i]->kernelLevel_interval[0];
+            motiv_2<<" ";
+        }
+
+
+        motiv_2.close();
+        
+        
+/***********************************Getting Motivation Number   End***************************************/
+
+        // return 0;
+
+
         // r = new RedirStdOut("evc_guide_compressed.config");
         // int max_len = 0, max_idx = -1;
         // std::map<int, int> distri;
@@ -819,7 +985,7 @@ int main(int argc, char *argv[]) {
             
             migration_plan_output.close();
             
-            return 0;
+            // return 0;
         }
 
         // eviction guide
@@ -851,137 +1017,6 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
-
-
-
-/***********************************Getting Motivation Number***************************************/
-        string argv1 = output_folder_name;
-        string filenaeme;
-        filenaeme = argv1+"_NNMemConsumptionLog.py";
-        printf("%s\n", filenaeme.c_str());
-        std::ofstream motiv_1(filenaeme);
-
-        motiv_1<<"active = [";
-        for (auto it = kernel_list.begin(); it != kernel_list.end(); ++it) {
-            CUDAKernel *current_kernel = &(*it);
-            vector<Tensor *> required_tensors;
-            current_kernel->getRequiredTensors(required_tensors);
-            long num_bytes = 0;
-            for (Tensor *tensor : required_tensors) {
-                num_bytes += std::ceil((float) tensor->size_in_byte);
-            }
-            motiv_1<<num_bytes<<",";
-        }
-
-        motiv_1<<"]\n";
-
-        motiv_1 << "active_breakdown = [";
-        for (auto it = kernel_list.begin(); it != kernel_list.end(); ++it) {
-            CUDAKernel *current_kernel = &(*it);
-            vector<Tensor *> inputs, weights, intermediates;
-            current_kernel->getTensorBreakdown(inputs, weights, intermediates);
-            long input_bytes = 0, weight_bytes = 0, intermediate_bytes = 0;
-            for (Tensor *tensor : inputs)
-                input_bytes += std::ceil((float) tensor->size_in_byte);
-            for (Tensor *tensor : weights)
-                weight_bytes += std::ceil((float) tensor->size_in_byte);
-            for (Tensor *tensor : intermediates)
-                intermediate_bytes += std::ceil((float) tensor->size_in_byte);
-            motiv_1<< "(" << input_bytes << "," << weight_bytes << "," << intermediate_bytes << "),";
-        }
-
-        motiv_1<<"]\n";
-
-
-        std::vector<long> GPU_pressure_memory_estimation;
-        GPU_pressure_memory_estimation.resize(kernel_list.size());
-        long total_global_size;
-        for (int i = 0; i < kernel_list.size(); i++)
-        {
-            GPU_pressure_memory_estimation[i] = memory_offset_intermediate + memory_offset_weights + tensor_list[0]->size_in_byte;
-        }
-        for (int i = 0; i < tensor_list.size(); i++)
-        {
-            if (!tensor_list[i]->is_global_weight)
-            {
-                for (int j = 0; j < tensor_list[i]->live_interval[0]; j++)
-                {
-                    GPU_pressure_memory_estimation[j] -= tensor_list[i]->size_in_byte;
-                }
-                int death;
-                if (tensor_list[i]->live_interval[1]==-1)
-                {
-                    death = tensor_list[i]->live_interval[0]+1;
-                }else
-                {
-                    death = tensor_list[i]->live_interval[1];
-                }
-                
-                for (int j = death; j < kernel_list.size(); j++)
-                {
-                    GPU_pressure_memory_estimation[j] -= tensor_list[i]->size_in_byte;
-                }   
-            }
-        }
-
-        motiv_1 << "total = [";
-        for (int i = 0; i < kernel_list.size(); i++)
-        {
-            motiv_1<<GPU_pressure_memory_estimation[i]<<",";
-        }
-        motiv_1<<"]\n";
-
-        motiv_1 << "global_weight = " << memory_offset_weights << "\n";
-        motiv_1 << "input_size = " << tensor_list[0]->size_in_byte << "\n";
-        
-        motiv_1.close();
-
-        filenaeme = argv1+"_TensorPeriodLog.py";
-        // double sd_buffer[500];
-        // int buffer_count = 0;
-
-        std::ofstream motiv_2(filenaeme);
-        motiv_2 << "sd_size = [";
-        for (int i = 0; i < interval_list.size(); i++)
-        {
-            motiv_2<<interval_list[i]->the_tensor->size_in_byte;
-            motiv_2<<", ";
-        }
-        motiv_2<<"]\n";
-        motiv_2 << "sd_time = [";
-        for (int i = 0; i < interval_list.size(); i++)
-        {
-            // if (interval_list[i]->time_estimated < 500)
-            // {
-            //     if (buffer_count < 500)
-            //     {
-            //         sd_buffer[buffer_count] = interval_list[i]->time_estimated;
-            //         buffer_count++;
-            //         motiv_2<<interval_list[i]->time_estimated;
-            //         motiv_2<<", ";
-            //     }
-            // }
-            // else
-            // {
-                motiv_2<<interval_list[i]->time_estimated;
-                motiv_2<<", ";
-            // }
-        }
-        motiv_2<<"]\n";
-        motiv_2 << "# ";
-        for (int i = 0; i < interval_list.size(); i++)
-        {
-            motiv_2<<interval_list[i]->kernelLevel_interval[0];
-            motiv_2<<" ";
-        }
-
-
-        motiv_2.close();
-        
-        
-/***********************************Getting Motivation Number   End***************************************/
-
-        return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);

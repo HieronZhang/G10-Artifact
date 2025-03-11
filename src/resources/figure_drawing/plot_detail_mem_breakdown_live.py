@@ -164,7 +164,8 @@ GLOBAL = 3
 
 selection = GLOBAL
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank0_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -183,11 +184,12 @@ elif selection == 2:
 elif selection == 3:
     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
 ax = Figure.add_subplot(411)
-plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-128", " ", markevery=1, legend=True, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) Granite-8B-Rank0", " ", markevery=1, legend=True, yscale_log=False)
 
 
 
-exec(open('../../../results/VIT/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank1_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -204,13 +206,14 @@ elif selection == 1:
 elif selection == 2:
     motiv1 = {"all" : real, "input" : live_input, "weight" : live_weight, "intermediate" : live_intermediate}
 elif selection == 3:
-    motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
+    motiv1 = {"all" : real}
 ax = Figure.add_subplot(412)
-plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512", " ", markevery=1, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) Granite-8B-Rank1", " ", markevery=1, yscale_log=False)
 
 
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank2_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -229,11 +232,12 @@ elif selection == 2:
 elif selection == 3:
     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
 ax = Figure.add_subplot(413)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResNet152-512", " ", markevery=1, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) Granite-8B-Rank2", " ", markevery=1, yscale_log=False)
 
 
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank3_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -252,7 +256,7 @@ elif selection == 2:
 elif selection == 3:
     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
 ax = Figure.add_subplot(414)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Inceptionv3-512", " ", markevery=1, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Granite-8B-Rank3", " ", markevery=1, yscale_log=False)
 
 
 

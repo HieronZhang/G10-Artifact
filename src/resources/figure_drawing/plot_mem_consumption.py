@@ -33,7 +33,7 @@ matplotlib.rcParams['hatch.linewidth'] = 0.5
 line_styles = ['--', '-', '-.', ':']
 hatches = ["", "\\", "//", "||"]
 colors = ['#ff796c', 'plum', '#95d0fc', 'gray']
-line_colors = ['brown', 'forestgreen', '#23a8eb', 'gray', 'black']
+line_colors = ['#598570', '#23a8eb', 'gray', 'black']
 markers = ['.', '.', '*', 'v', '^']
     
 
@@ -62,23 +62,23 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
 
     import pandas as pd
 
-    results["active"] = pd.Series(results["active"]).rolling(12).max().dropna().tolist()
+    results["active"] = pd.Series(results["active"]).rolling(150).max().dropna().tolist()
     results["all"] = pd.Series(results["all"]).rolling(6).max().dropna().tolist()
 
     for i, (plot_policy, series) in enumerate(results.items()):
         if cumulative:
             series = np.cumsum(series)
         series = np.array(series) * scaling / max_y_value
-        plot_func(np.arange(len(series)), series, label=plot_policy, color=line_colors[i % len(colors)], linestyle=line_styles[i % len(line_styles)], linewidth=3, markevery=markevery)
+        plot_func(np.arange(len(series)), series, label=plot_policy, color=line_colors[i % len(colors)], linestyle=line_styles[i % len(line_styles)], linewidth=3.5, markevery=markevery)
     if aggregate:
         agg_series = np.sum(series for _, series in results.items())
         agg_series = np.array(agg_series) * scaling / max_y_value
-        plot_func(np.arange(len(agg_series)), agg_series, label="total", color="purple", linewidth=2)
+        plot_func(np.arange(len(agg_series)), agg_series, label="total", color="purple", linewidth=3)
         
     if legend:
-        ax.legend(ncol=4, fontsize=16, loc="upper center", frameon=False, bbox_to_anchor=(0.5, 1.35))
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+        ax.legend(ncol=4, fontsize=20, loc="upper center", frameon=False, bbox_to_anchor=(0.5, 1.35))
+    ax.set_xlabel(xlabel, fontsize=18)
+    ax.set_ylabel(ylabel, fontsize=18)
     ax.set_yscale('log')
 
     ax.set_xlim(0, len(results["active"]))
@@ -93,7 +93,7 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
         # plt.yticks(np.arange(num_yticks) * ytick_gap)
     ax.grid(which='major', axis='y', color='#000000', linestyle='--')
     # ax.tight_layout()
-    ax.set_yticklabels(['{:0.0%}'.format(i*max_y_value/max_y_value) for i in ax.get_yticks()])
+    ax.set_yticklabels(['{:0.0%}'.format(i*max_y_value/max_y_value) for i in ax.get_yticks()], fontsize=18)
     # ax.savefig(f"{filename}")
     # ax.clf()
 
@@ -143,52 +143,57 @@ def plot_multi_timeline(multi_results, filename, xlabel="Hours", ylabel="Migrate
 from fig_common import *
 
 title = "dnn_mem_consumption"
-Figure = plt.figure(figsize=(8, 10))
+Figure = plt.figure(figsize=(14, 7))
 PDF = PdfPages("output/" + title + ".pdf")
 
-
-exec(open('../../../results/BERT_Base/128-prefetch_lru_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank0_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(411)
-plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-128", " ", markevery=1, legend=True)
+ax = Figure.add_subplot(221)
+plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) llama-70B-GPU0(Stage-0)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "CUDA Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
 # ax.xaxis.labelpad=30
 
 
-exec(open('../../../results/VIT/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(412)
-plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512", " ", markevery=1)
+ax = Figure.add_subplot(222)
+plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) granite-8B-GPU0(Stage-0)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "CUDA Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
 # ax.xaxis.labelpad=30
 
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/granite-8B-BS16-L1024/rank2_NNMemConsumptionLog.py').read())
+exec(open('../../../results/BertL-BS128-L512/rank0_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(413)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResNet152-512", " ", markevery=1)
+ax = Figure.add_subplot(223)
+plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) Bert-Large-GPU0(Stage-0)", " ", markevery=1)
 # ax.text(0.5, -0.35, "CUDA Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
 # ax.xaxis.labelpad=30
 
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/granite-8B-BS16-L1024/rank3_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(414)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Inceptionv3-512", " ", markevery=1)
+ax = Figure.add_subplot(224)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) GPT2-40B-GPU0(Stage-0)", " ", markevery=1)
 # ax.text(0.5, -0.35, "CUDA Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -196,9 +201,9 @@ plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Ince
 
 
 
-Figure.text(-0.15, 3.2, "Memory Consumption", rotation=90, \
+Figure.text(-1.45, 1.2, "Memory Consumption", rotation=90, \
     horizontalalignment='center', verticalalignment='center', \
-    transform=ax.transAxes)
+    transform=ax.transAxes, fontdict={'size': 21})
 
 Figure.tight_layout(pad=1.)
 

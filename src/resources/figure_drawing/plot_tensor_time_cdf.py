@@ -55,44 +55,27 @@ def plot_search_trace(list, bname: str, ax: plt.Axes, color_list: List[str] = co
 
 
 
-# Figure = plt.figure(figsize=fig_size)
-
-# ax = Figure.add_subplot(221)
-# plot_search_trace(bert_sd_size, "bert", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(a) BERT-128", ylabel="Size (byte)")
-
-# ax = Figure.add_subplot(222)
-# plot_search_trace(vit_sd_size, "vit", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(b) ViT-256")
-
-# ax = Figure.add_subplot(223)
-# plot_search_trace(resnet_sd_size, "resnet", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(c) ResNet152-256", ylabel="Size (byte)")
-
-# ax = Figure.add_subplot(224)
-# plot_search_trace(in_sd_size, "inception", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(d) Inceptionv3-512")
-
-# Figure.text(0.5, 0, '% of Tensors', ha='center', va='center', fontsize=16)
-# Figure.tight_layout(pad=1.05)
-
-
-# PDF0.savefig(Figure, bbox_inches='tight')
-# PDF0.close()
-
 Figure = plt.figure(figsize=fig_size)
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_TensorPeriodLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank0_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(221)
-plot_search_trace(sd_time, "bert", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(a) BERT-128", ylabel="Inactive Time ($\mu $s)")
+plot_search_trace(sd_time, "Granite-8B-Rank0", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(a) Granite-8B-Rank0", ylabel="Inactive Time ($\mu $s)")
 
-exec(open('../../../results/VIT/512-prefetch_lru_TensorPeriodLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank1_TensorPeriodLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank1_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(222)
-plot_search_trace(sd_time, "vit", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(b) ViT-512")
+plot_search_trace(sd_time, "Granite-8B-Rank1", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(b) Granite-8B-Rank1")
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_TensorPeriodLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank2_TensorPeriodLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank2_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(223)
-plot_search_trace(sd_time, "resnet", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(c) ResNet152-512", ylabel="Inactive Time ($\mu $s)")
+plot_search_trace(sd_time, "Granite-8B-Rank2", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(c) Granite-8B-Rank2", ylabel="Inactive Time ($\mu $s)")
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_TensorPeriodLog.py').read())
+# exec(open('../../../results/llama-70B-BS8-L4096/rank3_TensorPeriodLog.py').read())
+exec(open('../../../results/granite-8B-BS16-L1024/rank3_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(224)
-plot_search_trace(sd_time, "inception", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(d) Inceptionv3-512")
+plot_search_trace(sd_time, "Granite-8B-Rank3", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(d) Granite-8B-Rank3")
 
 Figure.text(0.5, 0, '% of Tensor Inactive Periods', ha='center', va='center', fontsize=16)
 Figure.tight_layout(pad=1.05)
