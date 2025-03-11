@@ -1,23 +1,35 @@
 #TODO: change these directories when using the script
-directory_name = ["../../semantics/70b-8batch-4096len/liveness-rank0-step1.liveness"]
+# directory_name = ["../../semantics/70b-8batch-4096len/", "../../semantics/8b-16batch-1024len/", "../../semantics/8b-16batch-2048len/", "../../semantics/8b-16batch-3072len/", "../../semantics/8b-16batch-4096len/", "../../semantics/granite3b-32batch-1024len/", "../../semantics/granite8b-16batch-1024len/", "../../semantics/mistral7b-16batch-1024len/", "../../semantics/gpt4-40b_bs16_seq1024/", "../../semantics/llama8b_run/bs24_seq2048/", "../../semantics/llama8b_run/bs24_seq1024/", "../../semantics/llama8b_run/bs32_seq1024/", 
+#                   "../../semantics/llama8b_run/bs8_seq1024/", "../../semantics/llama8b_run/bs8_seq2048/", "../../semantics/llama8b_run/bs8_seq3072/", "../../semantics/llama8b_run/bs8_seq4096/", "../../semantics/bertl-128batch-512seqlen/"]
 
-model_name = ["llama-70B"]
+directory_name = ["../../semantics/70b-8batch-4096len/", "../../semantics/8b-16batch-2048len/",  "../../semantics/granite3b-32batch-1024len/", "../../semantics/granite8b-16batch-1024len/", "../../semantics/mistral7b-16batch-1024len/", "../../semantics/gpt4-40b_bs16_seq1024/", 
+                    "../../semantics/bertl-128batch-512seqlen/"]
 
-ranks = ["rank0", "rank2", "rank4", "rank6"]
+
+# model_name = ["llama-70B-BS8-L4096", "llama-8B-BS16-L1024", "llama-8B-BS16-L2048", "llama-8B-BS16-L3072", "llama-8B-BS16-L4096", "granite-3B-BS32-L1024", "granite-8B-BS16-L1024", "mistral-7B-BS16-L1024", "gpt4-40B-BS16-L1024", "llama-8B-BS24-L2048", "llama-8B-BS24-L1024", "llama-8B-BS32-L1024", "llama-8B-BS8-L1024", "llama-8B-BS8-L2048", "llama-8B-BS8-L3072", "llama-8B-BS8-L4096", "BertL-BS128-L512"]
+
+model_name = ["llama-70B-BS8-L4096", "llama-8B-BS16-L2048", "granite-3B-BS32-L1024", "granite-8B-BS16-L1024", "mistral-7B-BS16-L1024", "gpt4-40B-BS16-L1024", "BertL-BS128-L512"]
+
+
+ranks = ["rank0"]
+
+rank_names = ["liveness-rank0-step1.liveness"]
 
 cpu_sizes = ["0", "80", "160"]
 
 pcie_array = [4, 8, 12, 16]
 
-for model_i in [0]:
-    # for rank in ranks:
-    for pcie in pcie_array:
-        for cpu_size in cpu_sizes:
-            filename = model_name[model_i] + "/" + f"ssd{pcie}-cpu{cpu_size}"
+for model_i in [0, 1, 2, 3, 4, 5, 6]:
+    # create the directories first
+    for rank_i in range(1):
+        for pcie in pcie_array:
+        # for cpu_size in cpu_sizes:
+            rank = ranks[rank_i]
+            filename = model_name[model_i] + "/" + f"rank{rank_i}" + f"_pcie{pcie}"
             with open(filename+".config", 'w') as fout:
                 content = f"""
 output_folder           ../results/{filename}
-input_directory         {directory_name[model_i]}
+input_directory         {directory_name[model_i]+rank_names[rank_i]}
 is_simulation           1
 
 

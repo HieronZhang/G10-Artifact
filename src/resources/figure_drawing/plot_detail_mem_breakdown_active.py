@@ -63,7 +63,7 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
 
     for label in ["active", "input", "weight", "intermediate"]:
         if label in results.keys():
-            results[label] = pd.Series(results[label]).rolling(6).max().dropna().tolist()
+            results[label] = pd.Series(results[label]).rolling(150).max().dropna().tolist()
             print(label, max_y_value, max(results[label]))
     if "all" in results:
         results["all"] = pd.Series(results["all"]).rolling(6).max().dropna().tolist()
@@ -165,7 +165,7 @@ GLOBAL = 4
 
 selection = ACTIVE_NO_TOTAL
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank0_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -195,7 +195,7 @@ plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-1
 
 
 
-exec(open('../../../results/VIT/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -221,7 +221,7 @@ plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512
 
 
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -247,7 +247,7 @@ plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResN
 
 
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]

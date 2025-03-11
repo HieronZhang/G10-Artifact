@@ -108,6 +108,7 @@ std::string workspace_size_file;
 std::string pf_kernel_time_file;
 std::string stat_output_file;
 std::string output_folder_name;
+std::string input_semantic_filename = "semantics.in";
 // simulation switches
 bool is_simulation = true;
 bool output_override = false;
@@ -421,6 +422,7 @@ int main(int argc, char *argv[]) {
 
         // general settings
         if (command == "output_folder")                 { output_folder_name = value; }
+        else if (command == "input_directory")          { input_semantic_filename = value; }
         else if (command == "output_override")          { output_override = std::stoi(value) != 0; }
         else if (command == "is_simulation")            { is_simulation = std::stoi(value) != 0; }
         else if (command == "is_profiling")             { is_simulation = std::stoi(value) == 0; }
@@ -569,7 +571,7 @@ int main(int argc, char *argv[]) {
     SetupOutputFolder();
 
 
-    parse_temperal(semantic_in_dir.c_str());
+    parse_temperal(input_semantic_filename.c_str());
 
     migration_plan_output.open("migration_plan.txt");
 
@@ -723,134 +725,6 @@ int main(int argc, char *argv[]) {
 
 
         give_eviction_guide();
-        
-        // r = new RedirStdOut("evc_guide_compressed.config");
-        // int max_len = 0, max_idx = -1;
-        // std::map<int, int> distri;
-        // for (int tensor_idx = 0; tensor_idx < tensor_list.size(); tensor_idx++) {
-        //     Tensor *candidate = tensor_list[tensor_idx];
-        //     int cur_len = 0;
-        //     std::cout << "Tensor: " << candidate->tensor_id << "\n";
-        //     Eviction_P current_hotness = EvictionGuide_Table[0].entry[candidate];
-        //     for (long i = 0; i < kernel_list.size(); i++) {
-        //         Eviction_P hotness = EvictionGuide_Table[i].entry[candidate];
-        //         if (i == 0 || hotness != current_hotness) {
-        //             std::cout << i << ":" << print_eviction_array[hotness].c_str() << "\n";
-        //             current_hotness = hotness;
-        //             cur_len++;
-        //         }
-        //     }
-        //     if (cur_len > max_len) {
-        //         max_len = cur_len;
-        //         max_idx = tensor_idx;
-        //     }
-        //     distri[cur_len]++;
-        //     std::cout << "\n";
-        // }
-        // std::cout << "Max len: " << max_len << " @ Tensor: " << max_idx << "\n";
-        // std::cout << "Distribution:\n";
-        // for (auto it = distri.begin(); it != distri.end(); ++it) {
-        //     std::cout << "  " << it->first << ":" << it->second << "\n";
-        // }
-        // delete r;
-
-        
-        //Implementation of flashneuron
-        if (migration_policy_str=="FLASHNEURON"|| migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL")
-        {
-            if (migration_policy_str=="FLASHNEURON")
-            {
-                int fail;
-                fail = scheduling_offload_flashneuron();
-                if (fail == 1)
-                {
-                    std::cout<<"@@@ Flashneuron cannot support this large model!"<<std::endl;
-                    return 0;
-                }
-                print_offloading_flashneuron();
-                std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
-            }
-            else
-            {
-                r = new RedirStdOut("pre_dealloc.config");
-                scheduling_prefetch();
-                delete r;
-                // prefetch guide
-                r = new RedirStdOut("prefetch_guide.config");
-                print_prefetch_table();
-                delete r;
-            }
-            
-
-            // GDS_Baseline_Type sim_type;
-            // if (migration_policy_str=="FLASHNEURON")
-            // {
-            //     sim_type = GDS_Baseline_Type::FlashNeuron;
-            // }
-            // else if (migration_policy_str=="G10GDSSSD")
-            // {
-            //     sim_type = GDS_Baseline_Type::G10_GDS_SSD;
-            // }
-            // else
-            // {
-            //     sim_type = GDS_Baseline_Type::G10_GDS_FULL;
-            // }
-        
-            // FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
-            // sim.run();
-            // double time_ = sim.total_sim_time;
-            // std::string info_file = output_folder_name + "/sim_result.final";
-            // std::ofstream foout(info_file);
-            // foout<<"total_exe_time = "<<time_<<std::endl; 
-            // foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
-            // foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
-            // foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
-            // foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
-            // foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
-            // std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
-            // std::ofstream fooout(info_file2);
-            // if (migration_policy_str=="FLASHNEURON")
-            // {
-            //     for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
-            //     {
-            //         fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
-            //     }
-            // }
-            
-            // migration_plan_output.close();
-            
-            // return 0;
-            goto Here;
-        }
-
-        // eviction guide
-        // r = new RedirStdOut("evc_guide.config");
-        // print_eviction_guide_table();
-        // delete r;
-
-        r = new RedirStdOut("pre_dealloc.config");
-        scheduling_prefetch();
-        delete r;
-
-        // prefetch guide
-        r = new RedirStdOut("prefetch_guide.config");
-        print_prefetch_table();
-        delete r;
-
-        
-Here:
-        // real memory usage
-        r = new RedirStdOut("real_mem.config");
-        print_GPU_mem_really_in_use();
-        delete r;
-
-        // kernel time table
-        r = new RedirStdOut("kernel_time_table.config");
-        for (int i = 0; i < kernel_list.size(); i++) {
-            std::cout << kernel_time_table[i] << std::endl;
-        }
-        delete r;
-
 
 
 
@@ -871,6 +745,7 @@ Here:
             for (Tensor *tensor : required_tensors) {
                 num_bytes += std::ceil((float) tensor->size_in_byte);
             }
+            num_bytes = (num_bytes==0) ? 4096 : num_bytes;
             motiv_1<<num_bytes<<",";
         }
 
@@ -932,6 +807,36 @@ Here:
         }
         motiv_1<<"]\n";
 
+        motiv_1 << "time_table = ["; //unit: us
+        for (int i = 0; i < kernel_list.size(); i++) {
+            motiv_1 << kernel_time_table[i+1] << ",";
+        }
+        motiv_1 << "]\n";
+
+        //loop the total list to find maximum indexs
+        vector<int> max_indexs;
+        long max_value = 0;
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            if (GPU_pressure_memory_estimation[i] > max_value)
+            {
+                max_value = GPU_pressure_memory_estimation[i];
+            }
+        }
+        for (int i = 0; i < kernel_list.size(); i++)
+        {
+            if (GPU_pressure_memory_estimation[i] > max_value - 30000000000)
+            {
+                max_indexs.push_back(i);
+            }
+        }
+
+        //sort the vector
+        std::sort(max_indexs.begin(), max_indexs.end());
+        double time_stride = (kernel_time_table[max_indexs[0]+1]-0);
+        motiv_1 << "time_stride = " << time_stride << "\n";
+        motiv_1 << "memory_stride = " << max_value - 80*1024*1024*1024 << "\n";
+
         motiv_1 << "global_weight = " << memory_offset_weights << "\n";
         motiv_1 << "input_size = " << tensor_list[0]->size_in_byte << "\n";
         
@@ -983,6 +888,137 @@ Here:
 /***********************************Getting Motivation Number   End***************************************/
 
         // return 0;
+
+
+        // r = new RedirStdOut("evc_guide_compressed.config");
+        // int max_len = 0, max_idx = -1;
+        // std::map<int, int> distri;
+        // for (int tensor_idx = 0; tensor_idx < tensor_list.size(); tensor_idx++) {
+        //     Tensor *candidate = tensor_list[tensor_idx];
+        //     int cur_len = 0;
+        //     std::cout << "Tensor: " << candidate->tensor_id << "\n";
+        //     Eviction_P current_hotness = EvictionGuide_Table[0].entry[candidate];
+        //     for (long i = 0; i < kernel_list.size(); i++) {
+        //         Eviction_P hotness = EvictionGuide_Table[i].entry[candidate];
+        //         if (i == 0 || hotness != current_hotness) {
+        //             std::cout << i << ":" << print_eviction_array[hotness].c_str() << "\n";
+        //             current_hotness = hotness;
+        //             cur_len++;
+        //         }
+        //     }
+        //     if (cur_len > max_len) {
+        //         max_len = cur_len;
+        //         max_idx = tensor_idx;
+        //     }
+        //     distri[cur_len]++;
+        //     std::cout << "\n";
+        // }
+        // std::cout << "Max len: " << max_len << " @ Tensor: " << max_idx << "\n";
+        // std::cout << "Distribution:\n";
+        // for (auto it = distri.begin(); it != distri.end(); ++it) {
+        //     std::cout << "  " << it->first << ":" << it->second << "\n";
+        // }
+        // delete r;
+
+        
+        //Implementation of flashneuron
+        if (migration_policy_str=="FLASHNEURON"|| migration_policy_str=="G10GDSSSD" || migration_policy_str=="G10GDSFULL")
+        {
+            if (migration_policy_str=="FLASHNEURON")
+            {
+                int fail;
+                fail = scheduling_offload_flashneuron();
+                if (fail == 1)
+                {
+                    std::cout<<"@@@ Flashneuron cannot support this large model!"<<std::endl;
+                    return 0;
+                }
+                print_offloading_flashneuron();
+                std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
+            }
+            else
+            {
+                r = new RedirStdOut("pre_dealloc.config");
+                scheduling_prefetch();
+                delete r;
+                // prefetch guide
+                r = new RedirStdOut("prefetch_guide.config");
+                print_prefetch_table();
+                delete r;
+            }
+
+            // return 0;
+            
+
+            // GDS_Baseline_Type sim_type;
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     sim_type = GDS_Baseline_Type::FlashNeuron;
+            // }
+            // else if (migration_policy_str=="G10GDSSSD")
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_SSD;
+            // }
+            // else
+            // {
+            //     sim_type = GDS_Baseline_Type::G10_GDS_FULL;
+            // }
+        
+            // FlashNeuron_simulator sim(SSD_PCIe_bandwidth_GBps, CPU_PCIe_bandwidth_GBps, GPU_memory_size_GB, sim_type);
+            // sim.run();
+            // double time_ = sim.total_sim_time;
+            // std::string info_file = output_folder_name + "/sim_result.final";
+            // std::ofstream foout(info_file);
+            // foout<<"total_exe_time = "<<time_<<std::endl; 
+            // foout<<"total_time_breakdown_stall = "<<sim.total_time_breakdown_stall<<std::endl;
+            // foout<<"total_time_breakdown_overlap = "<<sim.total_time_breakdown_overlap<<std::endl;
+            // foout<<"total_time_breakdown_executionOnly = "<<sim.total_time_breakdown_exe<<std::endl;
+            // foout<<"total_ssd2gpu_byte = "<<sim.total_fetch_byte<<std::endl;
+            // foout<<"total_gpu2ssd_byte = "<<sim.total_offload_byte<<std::endl;
+            // std::string info_file2 = output_folder_name + "/sim_result.kernelStall";
+            // std::ofstream fooout(info_file2);
+            // if (migration_policy_str=="FLASHNEURON")
+            // {
+            //     for (int i = 0; i < sim.fl_kernel_stall_normed.size(); i++)
+            //     {
+            //         fooout<<(sim.fl_kernel_stall_normed[i] < 0.0001 ? 0 : sim.fl_kernel_stall_normed[i]) <<std::endl;
+            //     }
+            // }
+            
+            migration_plan_output.close();
+            
+            // return 0;
+        }
+
+        // eviction guide
+        // r = new RedirStdOut("evc_guide.config");
+        // print_eviction_guide_table();
+        // delete r;
+
+        r = new RedirStdOut("pre_dealloc.config");
+        scheduling_prefetch();
+        delete r;
+
+        // prefetch guide
+        r = new RedirStdOut("prefetch_guide.config");
+        print_prefetch_table();
+        delete r;
+
+        
+
+        // real memory usage
+        r = new RedirStdOut("real_mem.config");
+        print_GPU_mem_really_in_use();
+        delete r;
+
+        // kernel time table
+        r = new RedirStdOut("kernel_time_table.config");
+        for (int i = 0; i < kernel_list.size(); i++) {
+            std::cout << kernel_time_table[i] << std::endl;
+        }
+        delete r;
+
+
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);
