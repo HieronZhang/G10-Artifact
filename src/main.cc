@@ -995,14 +995,14 @@ int main(int argc, char *argv[]) {
         // print_eviction_guide_table();
         // delete r;
 
-        r = new RedirStdOut("pre_dealloc.config");
-        scheduling_prefetch();
-        delete r;
+        // r = new RedirStdOut("pre_dealloc.config");
+        // scheduling_prefetch();
+        // delete r;
 
-        // prefetch guide
-        r = new RedirStdOut("prefetch_guide.config");
-        print_prefetch_table();
-        delete r;
+        // // prefetch guide
+        // r = new RedirStdOut("prefetch_guide.config");
+        // print_prefetch_table();
+        // delete r;
 
         
 
@@ -1019,6 +1019,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
+        return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);
