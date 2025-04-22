@@ -995,14 +995,14 @@ int main(int argc, char *argv[]) {
         // print_eviction_guide_table();
         // delete r;
 
-        r = new RedirStdOut("pre_dealloc.config");
-        scheduling_prefetch();
-        delete r;
+        // r = new RedirStdOut("pre_dealloc.config");
+        // scheduling_prefetch();
+        // delete r;
 
-        // prefetch guide
-        r = new RedirStdOut("prefetch_guide.config");
-        print_prefetch_table();
-        delete r;
+        // // prefetch guide
+        // r = new RedirStdOut("prefetch_guide.config");
+        // print_prefetch_table();
+        // delete r;
 
         
 
