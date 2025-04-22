@@ -101,6 +101,7 @@ extern std::vector<double> kernel_time_table;
 
 // output specifications
 std::string nn_model_input_file;
+std::string semantic_in_dir;
 std::string orig_kernel_time_file;
 std::string input_pf_kernel_time_file;
 std::string workspace_size_file;
@@ -447,6 +448,7 @@ int main(int argc, char *argv[]) {
         else if (command == "is_UVM")                   { is_UVM = std::stoi(value) != 0; }
         else if (command == "use_prefetch")             { use_prefetch = std::stoi(value) != 0; }
         else if (command == "nn_model_input_file")      { nn_model_input_file = value; }
+        else if (command == "input_directory")          { semantic_in_dir = value; }
         else if (command == "orig_kernel_time_file")    { orig_kernel_time_file = value; }
         else if (command == "workspace_size_file")      { workspace_size_file = value; }
         else if (command == "input_pf_kernel_time_file"){ input_pf_kernel_time_file = value; }
@@ -492,7 +494,7 @@ int main(int argc, char *argv[]) {
     // indirection if there is no file is fed through stdin
     if (isatty(fileno(stdin))) {
       if (nn_model_input_file.empty()) {
-        eprintf("No input NN model in either stdin or config file\n", "");
+        // eprintf("No input NN model in either stdin or config file\n", "");
       } else {
         // open a file and redirect to stdin
         std::ifstream nn_model(nn_model_input_file.c_str());

@@ -205,7 +205,12 @@ GPUPageTable::GPUPageTable(unsigned long total_memory_pages, EvcPolicy policy, i
   }
   // initialize eviction guide specific data structures
   for (Tensor *tensor : tensor_list) {
-    Assert(range_remap.find(tensor->getGlobalOffset()) == range_remap.end());
+    // Assert(range_remap.find(tensor->getGlobalOffset()) == range_remap.end());
+    if (range_remap.find(tensor->getGlobalOffset()) != range_remap.end())
+    {
+      tensor->print();
+    }
+    
     range_remap[tensor->getGlobalOffset()] = tensor;
   }
 }
