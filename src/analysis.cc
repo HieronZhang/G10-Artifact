@@ -33,6 +33,7 @@ double SSD_latency_us = -1;
 double system_latency_us = -1;
 double delta_parameter = -1;
 double loosen_parameter = 1;
+extern int algo_speedup;
 
 long long memory_offset_intermediate = 0;
 long long memory_offset_weights = 0;
@@ -3406,7 +3407,7 @@ void scheduling_prefetch(){
     //Schedule the prefetches and pre-evictions, Go through all the intervals, from largest to shortest
     int cold_period_iter = -1;
     int tot_iter_num = interval_list.size();
-    const int Sample = 10;
+    const int Sample = algo_speedup;
 
     for (int i = 0; i < tot_iter_num; i+=Sample)
     {
