@@ -353,6 +353,7 @@ class Hidding_Interval
     bool is_really_offloaded;
     int kernelLevel_interval[2];
     int original_prefetch_index;
+    int original_prefetch_finish_index;
     int evict_finish_index;
     double time_estimated;   //us
     long GPU_mem_line;
