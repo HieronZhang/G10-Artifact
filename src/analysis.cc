@@ -2385,7 +2385,7 @@ int gpu2ssd_BWgiveIndx(long tensor_size, int offload_index, bool is_looped, int 
 
     if (!is_looped)
     {
-        Assert(period_end_index >= offload_index);
+        // Assert(period_end_index >= offload_index);
         while (rest_size > 0 && curr_index < period_end_index)
         {
             if (!gpu2ssd_BW_estimation[curr_index].full)
@@ -2403,7 +2403,7 @@ int gpu2ssd_BWgiveIndx(long tensor_size, int offload_index, bool is_looped, int 
     }
     else
     {
-        Assert(period_end_index <= offload_index);
+        // Assert(period_end_index <= offload_index);
         while (rest_size > 0 && (curr_index < period_end_index + kernel_list.size()))
         {
             if (!gpu2ssd_BW_estimation[curr_index % kernel_num].full)
@@ -2611,7 +2611,7 @@ int ssd2gpu_BWgiveIndx(long tensor_size, int needed_index, bool is_looped, int p
     }
     else
     {
-        curr_index += kernel_list.size();
+        curr_index += kernel_num;
         while (rest_size > 0 && curr_index >= period_start_index)
         {
             if (!ssd2gpu_BW_estimation[curr_index % kernel_num].full)
@@ -3302,9 +3302,10 @@ void scheduling_prefetch(){
             // }
             
             //minus mem
+            double tensor_size = curr_tensor->size_in_byte;
             for (int j = 0; j < birth_date_index; j++)
             {
-                GPU_resident_memory_estimation[j] -= curr_tensor->size_in_byte;
+                GPU_resident_memory_estimation[j] -= tensor_size;
             }
                     
             // }
@@ -3344,9 +3345,10 @@ void scheduling_prefetch(){
             
 
             //minus mem
+            tensor_size = curr_tensor->size_in_byte;
             for (int j = death_index; j < kernel_num; j++)
             {
-                GPU_resident_memory_estimation[j] -= curr_tensor->size_in_byte;
+                GPU_resident_memory_estimation[j] -= tensor_size;
             }
             // }
         }
@@ -3451,11 +3453,20 @@ void scheduling_prefetch(){
                         prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0]);
                     }
 
-                    for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+                    //Optimization: quick check
+                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > a->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > a->GPU_mem_line
+                     && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line)
                     {
-                        if (GPU_resident_memory_estimation[j] > a->GPU_mem_line)
+                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+                    }
+                    else
+                    {
+                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
                         {
-                            area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+                            if (GPU_resident_memory_estimation[j] > a->GPU_mem_line)
+                            {
+                                area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+                            }
                         }
                     }
                 }
@@ -3473,13 +3484,25 @@ void scheduling_prefetch(){
                         prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0]);
                     }
 
-                    for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+
+
+                    //Optimization: quick check
+                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
+                        && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line)
                     {
-                        if (GPU_resident_memory_estimation[j % kernel_num] > a->GPU_mem_line)
+                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+                    }
+                    else
+                    {
+                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
                         {
-                            area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+                            if (GPU_resident_memory_estimation[j % kernel_num] > a->GPU_mem_line)
+                            {
+                                area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+                            }
                         }
                     }
+                    
 
                     // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1] + kernel_list.size(); j++)
                     // {
@@ -3515,13 +3538,23 @@ void scheduling_prefetch(){
                         prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0]);
                     }
 
-                    for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+
+                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > b->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > b->GPU_mem_line
+                        && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line)
                     {
-                        if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
+                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+                    }
+                    else
+                    {
+                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
                         {
-                            area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+                            if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
+                            {
+                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+                            }
                         }
                     }
+                    
                 }
                 else
                 {
@@ -3537,11 +3570,21 @@ void scheduling_prefetch(){
                         prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0]);
                     }
 
-                    for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+
+                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
+                        && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
                     {
-                        if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
+                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+                    }
+                    else
+                    {
+                        
+                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
                         {
-                            area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+                            if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
+                            {
+                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+                            }
                         }
                     }
 

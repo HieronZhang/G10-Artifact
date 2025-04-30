@@ -730,7 +730,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
-        give_eviction_guide();
+        // give_eviction_guide();
 
 
 
