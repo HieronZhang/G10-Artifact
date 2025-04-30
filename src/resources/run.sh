@@ -41,7 +41,7 @@ OPTION_OVERRIDE=0
 
 APPLICATION=g10-algorithm
 GEN_SCRIPT=resources/genconfigs.py
-MAX_CONCURRENT_RUN=25
+MAX_CONCURRENT_RUN=124
 PATTERN=".*"
 
 display_yesno_option() {
