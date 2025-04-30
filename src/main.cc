@@ -579,7 +579,7 @@ int main(int argc, char *argv[]) {
 
     migration_plan_output_file = output_folder_name + "/" + "migration_plan.txt";
 
-    // migration_plan_output.open(migration_plan_output_file);
+    migration_plan_output.open(migration_plan_output_file);
 
     // return 0;
 
