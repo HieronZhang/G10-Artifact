@@ -43,6 +43,7 @@ int prefetch_optimize = 1;
 std::vector<Tensor*> tensor_list;
 std::vector<CUDAKernel> kernel_list;
 std::vector<double> kernel_time_table;
+std::vector<double> kernel_time_table_extended_sort;
 std::vector<Hidding_Interval*> interval_list;
 std::vector<EvictionGuide_Entry> EvictionGuide_Table;
 std::vector<long> GPU_resident_memory_estimation;
@@ -4291,6 +4292,21 @@ void scheduling_prefetch(){
     std::cerr << "---------After Second-time Modification" << std::endl;
     print_GPU_mem_estimation("After_Prefetch_adjusted");
 
+    //Fill the looped extend kernel time table      0 - 2 * kernel_num
+    
+    kernel_time_table_extended_sort.resize(kernel_num);
+    for (int j = 0; j < kernel_num; j++)
+    {
+        kernel_time_table_extended_sort[j] = kernel_time_table[j];
+    }
+    double last_time_s = kernel_time_table[kernel_num];
+    kernel_time_table_extended_sort.push_back(last_time_s);
+    for (int j = 0; j < kernel_num; j++)
+    {
+        last_time_s += (double)kernel_list[j].execution_cycles / (double)(GPU_frequency_GHz*1000);
+        kernel_time_table_extended_sort.push_back(last_time_s);
+    }
+
 
 
     // Cold periods second pass, for smart eviction policy
@@ -4311,6 +4327,10 @@ void scheduling_prefetch(){
             if (a->is_really_offloaded || a->the_tensor->size_in_byte < 1024*16)
             {
                 area_can_reduce_a = 0;
+            }
+            else if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*16)
+            {
+                area_can_reduce_a = 10000;
             }
             else
             {
@@ -4349,7 +4369,7 @@ void scheduling_prefetch(){
                     if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
                         && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line)
                     {
-                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
                     }
                     else
                     {
@@ -4408,7 +4428,7 @@ void scheduling_prefetch(){
                     if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
                         && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
                     {
-                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
                     }
                     else
                     {

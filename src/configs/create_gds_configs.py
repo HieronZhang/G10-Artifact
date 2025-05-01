@@ -2,9 +2,10 @@
 import os
 import sys
 
-settings = ["8b_16_2k_4ubs", "8b_32_2k_4ubs", "8b_64_1k_8ubs", "8b_64_2k_4ubs", "8b_64_4k_2ubs", "8b_128_2k_4ubs", "70b_8_2k_1ubs", "70b_16_1k_1ubs", "70b_16_2k_1ubs", "70b_16_3k_1ubs", "70b_16_4k_1ubs", "70b_32_2k_1ubs", "70b_64_2k_1ubs"]
+settings = ["8b_16_2k_4ubs", "8b_32_2k_4ubs", "8b_64_1k_8ubs", "8b_64_2k_4ubs", "8b_64_4k_2ubs", "8b_128_2k_4ubs", "70b_8_2k_1ubs", "70b_16_1k_1ubs", "70b_16_2k_1ubs", "70b_16_3k_1ubs", "70b_16_4k_1ubs", "70b_32_2k_1ubs", "70b_64_2k_1ubs"
+            , "granite_8b_bs16_seq8k_ubs4", "granite_8b_bs32_seq8k_ubs4", "granite_8b_bs64_seq8k_ubs4"]
 
-speedups = ["1", "5", "10", "10", "10", "20", "20", "40", "40", "40", "40", "80", "160"]
+speedups = ["1", "5", "10", "10", "10", "40", "20", "40", "40", "40", "40", "160", "320", "10", "20", "20"]
 
 ranks = ["0", "1"]
 
