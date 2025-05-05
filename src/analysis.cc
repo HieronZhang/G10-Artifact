@@ -29,6 +29,7 @@ extern int prefetch_degree;
 extern int borden;
 extern int is_transformer;
 double CPU_memory_line_GB = -1;
+long CPU_line;
 double SSD_latency_us = -1;
 double system_latency_us = -1;
 double delta_parameter = -1;
@@ -2351,6 +2352,24 @@ bool check_CPU_OK(long target_line){
     return status;
 }
 
+bool check_CPU_OK_interval(long target_line, int start, int end){
+    bool status = true;
+    if (end < start)
+    {
+        end += kernel_list.size();
+    }
+    
+    for (int i = start; i < end; i++)
+    {
+        if (CPU_resident_memory_estimation[i % kernel_list.size()] > target_line)
+        {
+            status = false;
+            break;
+        }
+    }
+    return status;
+}
+
 
 void CPU_add_update_interval(long tensor_size, int start, int end){
     if (end < start)
@@ -2529,7 +2548,7 @@ void gpu2ssd_BWsim(long tensor_size, int offload_index){
     long rest_size = tensor_size;
     int curr_index = offload_index;
     int kernel_numm = kernel_list.size();
-    bool continuity = true;
+
     while (rest_size > 0 && curr_index < offload_index + kernel_numm)
     {
         if (!gpu2ssd_BW_estimation[curr_index % kernel_numm].full)
@@ -2568,24 +2587,93 @@ void gpu2ssd_BWsim(long tensor_size, int offload_index){
 }
 
 
-int gpu2pcie_BWgiveIndx(long tensor_size, int offload_index){
+int gpu2pcie_BWgiveIndx(long tensor_size, int offload_index, bool is_looped, int period_end_index, int& offload_index_out){
     long rest_size = tensor_size;
     int curr_index = offload_index;
-    while (rest_size > 0 && curr_index < kernel_list.size())
+    int kernel_num = kernel_list.size();
+    bool continuity = false;
+
+    if (!is_looped)
     {
-        if (!gpu2pcie_BW_estimation[curr_index].full)
+        // Assert(period_end_index >= offload_index);
+        while (rest_size > 0 && curr_index < period_end_index)
         {
-            rest_size -= (gpu2pcie_BW_estimation[curr_index].capacity - gpu2pcie_BW_estimation[curr_index].estimation);
+            if (!gpu2pcie_BW_estimation[curr_index].full && !continuity)
+            {
+                continuity = true;
+                offload_index_out = curr_index;
+                rest_size -= (gpu2pcie_BW_estimation[curr_index].capacity - gpu2pcie_BW_estimation[curr_index].estimation);
+            }
+            else if (continuity && gpu2pcie_BW_estimation[curr_index].estimation > 1)
+            {
+                continuity = false;
+                if (rest_size - (gpu2pcie_BW_estimation[curr_index].capacity - gpu2pcie_BW_estimation[curr_index].estimation) > 0)
+                {
+                    rest_size = tensor_size;
+                }
+                else
+                {
+                    rest_size = -1;
+                }
+            }
+            else if (continuity && gpu2pcie_BW_estimation[curr_index].estimation <= 1)
+            {
+                rest_size -= (gpu2pcie_BW_estimation[curr_index].capacity - gpu2pcie_BW_estimation[curr_index].estimation);
+            }
+
+            if (rest_size <= 0 || curr_index == period_end_index-1)
+            {
+                break;
+            }
             
+            curr_index++;
         }
-        if (rest_size <= 0 || curr_index == kernel_list.size()-1)
-        {
-            break;
-        }
-        
-        curr_index++;
     }
-    return curr_index;
+    else
+    {
+        // Assert(period_end_index <= offload_index);
+        while (rest_size > 0 && (curr_index < period_end_index + kernel_list.size()))
+        {
+            // if (!gpu2pcie_BW_estimation[curr_index % kernel_num].full)
+            // {
+            //     rest_size -= (gpu2pcie_BW_estimation[curr_index % kernel_num].capacity - gpu2pcie_BW_estimation[curr_index % kernel_num].estimation);
+                
+            // }
+
+            if (!gpu2pcie_BW_estimation[curr_index % kernel_num].full && !continuity)
+            {
+                continuity = true;
+                offload_index_out = curr_index;
+                rest_size -= (gpu2pcie_BW_estimation[curr_index % kernel_num].capacity - gpu2pcie_BW_estimation[curr_index % kernel_num].estimation);
+            }
+            else if (continuity && gpu2pcie_BW_estimation[curr_index % kernel_num].estimation > 1)
+            {
+                continuity = false;
+                if (rest_size - (gpu2pcie_BW_estimation[curr_index % kernel_num].capacity - gpu2pcie_BW_estimation[curr_index % kernel_num].estimation) > 0)
+                {
+                    rest_size = tensor_size;
+                }
+                else
+                {
+                    rest_size = -1;
+                }
+            }
+            else if (continuity && gpu2pcie_BW_estimation[curr_index % kernel_num].estimation <= 1)
+            {
+                rest_size -= (gpu2pcie_BW_estimation[curr_index % kernel_num].capacity - gpu2pcie_BW_estimation[curr_index % kernel_num].estimation);
+            }
+
+
+            if (rest_size <= 0 || curr_index % kernel_num == period_end_index-1)
+            {
+                break;
+            }
+            
+            curr_index++;
+        }
+    }
+
+    return (curr_index+1);
 }
 
 
@@ -2593,36 +2681,37 @@ int gpu2pcie_BWgiveIndx(long tensor_size, int offload_index){
 void gpu2pcie_BWsim(long tensor_size, int offload_index){
     long rest_size = tensor_size;
     int curr_index = offload_index;
-    while (rest_size > 0 && curr_index < kernel_list.size())
+    int kernel_numm = kernel_list.size();
+    while (rest_size > 0 && curr_index < offload_index + kernel_numm)
     {
-        if (!gpu2pcie_BW_estimation[curr_index].full)
+        if (!gpu2pcie_BW_estimation[curr_index%kernel_numm].full)
         {
             //
-            if (rest_size + gpu2pcie_BW_estimation[curr_index].estimation > gpu2pcie_BW_estimation[curr_index].capacity)
+            if (rest_size + gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation > gpu2pcie_BW_estimation[curr_index%kernel_numm].capacity)
             {
-                rest_size -= (gpu2pcie_BW_estimation[curr_index].capacity - gpu2pcie_BW_estimation[curr_index].estimation);
-                gpu2pcie_BW_estimation[curr_index].estimation = gpu2pcie_BW_estimation[curr_index].capacity;
-                gpu2pcie_BW_estimation[curr_index].full = true;
+                rest_size -= (gpu2pcie_BW_estimation[curr_index%kernel_numm].capacity - gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation);
+                gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation = gpu2pcie_BW_estimation[curr_index%kernel_numm].capacity;
+                gpu2pcie_BW_estimation[curr_index%kernel_numm].full = true;
                 
-                gpu2ssd_BW_estimation[curr_index].estimation = gpu2ssd_BW_estimation[curr_index].capacity;
-                gpu2ssd_BW_estimation[curr_index].full = true;
+                gpu2ssd_BW_estimation[curr_index%kernel_numm].estimation = gpu2ssd_BW_estimation[curr_index%kernel_numm].capacity;
+                gpu2ssd_BW_estimation[curr_index%kernel_numm].full = true;
             }
             else
             {
-                gpu2pcie_BW_estimation[curr_index].estimation += rest_size;
-                if (gpu2pcie_BW_estimation[curr_index].estimation >= (gpu2pcie_BW_estimation[curr_index].capacity - gpu2ssd_BW_estimation[curr_index].capacity))
+                gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation += rest_size;
+                if (gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation >= (gpu2pcie_BW_estimation[curr_index%kernel_numm].capacity - gpu2ssd_BW_estimation[curr_index%kernel_numm].capacity))
                 {
-                    gpu2ssd_BW_estimation[curr_index].estimation += gpu2pcie_BW_estimation[curr_index].estimation - (gpu2pcie_BW_estimation[curr_index].capacity - gpu2ssd_BW_estimation[curr_index].capacity);
-                    if (gpu2ssd_BW_estimation[curr_index].estimation >= gpu2ssd_BW_estimation[curr_index].capacity)
+                    gpu2ssd_BW_estimation[curr_index%kernel_numm].estimation += gpu2pcie_BW_estimation[curr_index%kernel_numm].estimation - (gpu2pcie_BW_estimation[curr_index%kernel_numm].capacity - gpu2ssd_BW_estimation[curr_index%kernel_numm].capacity);
+                    if (gpu2ssd_BW_estimation[curr_index%kernel_numm].estimation >= gpu2ssd_BW_estimation[curr_index%kernel_numm].capacity)
                     {
-                        gpu2ssd_BW_estimation[curr_index].estimation = gpu2ssd_BW_estimation[curr_index].capacity;
-                        gpu2ssd_BW_estimation[curr_index].full = true;
+                        gpu2ssd_BW_estimation[curr_index%kernel_numm].estimation = gpu2ssd_BW_estimation[curr_index%kernel_numm].capacity;
+                        gpu2ssd_BW_estimation[curr_index%kernel_numm].full = true;
                     }
                 }
                 rest_size = -1;
             }                
         }
-        if (rest_size <= 0 || curr_index == kernel_list.size()-1)
+        if (rest_size <= 0 || curr_index == offload_index + kernel_numm -1)
         {
             break;
         }
@@ -2782,23 +2871,87 @@ void ssd2gpu_BWsim(long tensor_size, int fetch_index){
 }
 
 
-int pcie2gpu_BWgiveIndx(long tensor_size, int needed_index){
+int pcie2gpu_BWgiveIndx(long tensor_size, int needed_index, bool is_looped, int period_start_index, int& prefetch_finish_index_out){
     long rest_size = tensor_size;
     int curr_index = needed_index - 1;
-    while (rest_size > 0 && curr_index >= 0)
+    int kernel_num = kernel_list.size();
+    bool continuity = false;
+
+    if (!is_looped)
     {
-        if (!pcie2gpu_BW_estimation[curr_index].full)
+        while (rest_size > 0 && curr_index >= period_start_index)
         {
-            rest_size -= (pcie2gpu_BW_estimation[curr_index].capacity - pcie2gpu_BW_estimation[curr_index].estimation);
+            if (!pcie2gpu_BW_estimation[curr_index].full && !continuity)
+            {
+                continuity = true;
+                prefetch_finish_index_out = curr_index;
+                rest_size -= (pcie2gpu_BW_estimation[curr_index].capacity - pcie2gpu_BW_estimation[curr_index].estimation);
+            }
+            else if (continuity && pcie2gpu_BW_estimation[curr_index].estimation > 1)
+            {
+                continuity = false;
+                if (rest_size - (pcie2gpu_BW_estimation[curr_index].capacity - pcie2gpu_BW_estimation[curr_index].estimation) > 0)
+                {
+                    rest_size = tensor_size;
+                }
+                else
+                {
+                    rest_size = -1;
+                }
+            }
+            else if (continuity && pcie2gpu_BW_estimation[curr_index].estimation <= 1)
+            {
+                rest_size -= (pcie2gpu_BW_estimation[curr_index].capacity - pcie2gpu_BW_estimation[curr_index].estimation);
+                
+            }
+
+
+            if (rest_size <= 0 || curr_index == period_start_index)
+            {
+                break;
+            }
             
+            curr_index--;
         }
-        if (rest_size <= 0 || curr_index == 0)
-        {
-            break;
-        }
-        
-        curr_index--;
     }
+    else
+    {
+        curr_index += kernel_num;
+        while (rest_size > 0 && curr_index >= period_start_index)
+        {
+            if (!pcie2gpu_BW_estimation[curr_index % kernel_num].full && !continuity)
+            {
+                continuity = true;
+                prefetch_finish_index_out = curr_index;
+                rest_size -= (pcie2gpu_BW_estimation[curr_index % kernel_num].capacity - pcie2gpu_BW_estimation[curr_index % kernel_num].estimation);
+            }
+            else if (continuity && pcie2gpu_BW_estimation[curr_index % kernel_num].estimation > 1)
+            {
+                continuity = false;
+                if (rest_size - (pcie2gpu_BW_estimation[curr_index % kernel_num].capacity - pcie2gpu_BW_estimation[curr_index % kernel_num].estimation) > 0)
+                {
+                    rest_size = tensor_size;
+                }
+                else
+                {
+                    rest_size = -1;
+                }
+            }
+            else if (continuity && pcie2gpu_BW_estimation[curr_index % kernel_num].estimation <= 1)
+            {
+                rest_size -= (pcie2gpu_BW_estimation[curr_index % kernel_num].capacity - pcie2gpu_BW_estimation[curr_index % kernel_num].estimation);
+                
+            }
+
+            if (rest_size <= 0 || curr_index == period_start_index)
+            {
+                break;
+            }
+            
+            curr_index--;
+        }
+    }
+    
     return curr_index;
 }
 
@@ -2806,36 +2959,38 @@ int pcie2gpu_BWgiveIndx(long tensor_size, int needed_index){
 void pcie2gpu_BWsim(long tensor_size, int fetch_index){
     long rest_size = tensor_size;
     int curr_index = fetch_index;
-    while (rest_size > 0 && curr_index <= kernel_list.size())
+    int kernel_numm = kernel_list.size();
+
+    while (rest_size > 0 && curr_index <= fetch_index + kernel_numm)
     {
-        if (!pcie2gpu_BW_estimation[curr_index].full)
+        if (!pcie2gpu_BW_estimation[curr_index % kernel_numm].full)
         {
             //
-            if (rest_size + pcie2gpu_BW_estimation[curr_index].estimation > pcie2gpu_BW_estimation[curr_index].capacity)
+            if (rest_size + pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation > pcie2gpu_BW_estimation[curr_index % kernel_numm].capacity)
             {
-                rest_size -= (pcie2gpu_BW_estimation[curr_index].capacity - pcie2gpu_BW_estimation[curr_index].estimation);
-                pcie2gpu_BW_estimation[curr_index].estimation = pcie2gpu_BW_estimation[curr_index].capacity;
-                pcie2gpu_BW_estimation[curr_index].full = true;
+                rest_size -= (pcie2gpu_BW_estimation[curr_index % kernel_numm].capacity - pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation);
+                pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation = pcie2gpu_BW_estimation[curr_index % kernel_numm].capacity;
+                pcie2gpu_BW_estimation[curr_index % kernel_numm].full = true;
                 
-                ssd2gpu_BW_estimation[curr_index].estimation = ssd2gpu_BW_estimation[curr_index].capacity;
-                ssd2gpu_BW_estimation[curr_index].full = true;
+                ssd2gpu_BW_estimation[curr_index % kernel_numm].estimation = ssd2gpu_BW_estimation[curr_index % kernel_numm].capacity;
+                ssd2gpu_BW_estimation[curr_index % kernel_numm].full = true;
             }
             else
             {
-                pcie2gpu_BW_estimation[curr_index].estimation += rest_size;
-                if (pcie2gpu_BW_estimation[curr_index].estimation >= (pcie2gpu_BW_estimation[curr_index].capacity - ssd2gpu_BW_estimation[curr_index].capacity))
+                pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation += rest_size;
+                if (pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation >= (pcie2gpu_BW_estimation[curr_index % kernel_numm].capacity - ssd2gpu_BW_estimation[curr_index % kernel_numm].capacity))
                 {
-                    ssd2gpu_BW_estimation[curr_index].estimation += pcie2gpu_BW_estimation[curr_index].estimation - (pcie2gpu_BW_estimation[curr_index].capacity - ssd2gpu_BW_estimation[curr_index].capacity);
-                    if (ssd2gpu_BW_estimation[curr_index].estimation >= ssd2gpu_BW_estimation[curr_index].capacity)
+                    ssd2gpu_BW_estimation[curr_index % kernel_numm].estimation += pcie2gpu_BW_estimation[curr_index % kernel_numm].estimation - (pcie2gpu_BW_estimation[curr_index % kernel_numm].capacity - ssd2gpu_BW_estimation[curr_index % kernel_numm].capacity);
+                    if (ssd2gpu_BW_estimation[curr_index % kernel_numm].estimation >= ssd2gpu_BW_estimation[curr_index % kernel_numm].capacity)
                     {
-                        ssd2gpu_BW_estimation[curr_index].estimation = ssd2gpu_BW_estimation[curr_index].capacity;
-                        ssd2gpu_BW_estimation[curr_index].full = true;
+                        ssd2gpu_BW_estimation[curr_index % kernel_numm].estimation = ssd2gpu_BW_estimation[curr_index % kernel_numm].capacity;
+                        ssd2gpu_BW_estimation[curr_index % kernel_numm].full = true;
                     }
                 }
                 rest_size = -1;
             }                
         }
-        if (rest_size <= 0 || curr_index == kernel_list.size()-1)
+        if (rest_size <= 0 || curr_index == fetch_index + kernel_numm-1)
         {
             break;
         }
@@ -3127,7 +3282,7 @@ void scheduling_prefetch(){
 
     long target_mem_line = (long)(GPU_memory_size_GB * 1024 * 1024 * 1024);
     long tolerant_line = target_mem_line * 0.7; 
-    long CPU_line = (long)(CPU_memory_line_GB * 1024 * 1024 * 1024);
+    CPU_line = (long)(CPU_memory_line_GB * 1024 * 1024 * 1024);
 
     int hill_index = 0;
     long hill_mem = 0;
@@ -3530,16 +3685,21 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index;
                     int prefetch_mid_index;
-                    int offload_out;
+                    int offload_out = -1;
                     int prefetch_out;
-                    if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // {
+                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
+                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
+                    // }
+                    // else {
+                    offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], false, a->kernelLevel_interval[1], offload_out);
+                    prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0], prefetch_out);
+                    // }
+                    if (((offload_out >= a->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
                     {
-                        offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
-                    }
-                    else {
-                        offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], false, a->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0], prefetch_out);
+                        offload_mid_index = gpu2pcie_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], false, a->kernelLevel_interval[1], offload_out);
+                        prefetch_mid_index = pcie2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0], prefetch_out);
                     }
 
                     //Optimization: quick check
@@ -3563,18 +3723,22 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index;
                     int prefetch_mid_index;
-                    int offload_out;
+                    int offload_out = -1;
                     int prefetch_out;
-                    if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // {
+                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
+                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
+                    // }
+                    // else {
+                    offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], true, a->kernelLevel_interval[1], offload_out);
+                    prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0], prefetch_out);
+                    // }
+                    if (((offload_out >= a->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
                     {
-                        offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
+                        offload_mid_index = gpu2pcie_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], true, a->kernelLevel_interval[1], offload_out);
+                        prefetch_mid_index = pcie2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0], prefetch_out);
                     }
-                    else {
-                        offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], true, a->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0], prefetch_out);
-                    }
-
 
 
                     //Optimization: quick check
@@ -3619,16 +3783,21 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index;
                     int prefetch_mid_index;
-                    int offload_out;
+                    int offload_out = -1;
                     int prefetch_out;
-                    if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // {
+                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
+                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
+                    // }
+                    // else {
+                    offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
+                    prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
+                    // }
+                    if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
                     {
-                        offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
-                    }
-                    else {
-                        offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
+                        offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
+                        prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
                     }
 
 
@@ -3653,16 +3822,21 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index;
                     int prefetch_mid_index;
-                    int offload_out;
+                    int offload_out = -1;
                     int prefetch_out;
-                    if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+                    // {
+                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
+                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
+                    // }
+                    // else {
+                    offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
+                    prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
+                    // }
+                    if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
                     {
-                        offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
-                    }
-                    else {
-                        offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
+                        offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
+                        prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
                     }
 
 
@@ -3768,301 +3942,336 @@ void scheduling_prefetch(){
             cpu_safe_time += delta_cpu_time;
             double cpu_prefetch_estimated_time = cpu_movement_estimated_time + delta_cpu_time;
 
-            if (curr_interval->time_estimated > ssd_safe_time)
+            // if (curr_interval->time_estimated > ssd_safe_time)
+            // {
+            if (!curr_interval->is_looped)  //Not looped
             {
-                if (!curr_interval->is_looped)  //Not looped
+                
+                //Find the  ideal  finished(clear) index
+                // double eviction_finish_time = kernel_time_table[curr_interval->kernelLevel_interval[0]] + ssd_movement_estimated_time;
+                // int eviction_clear_index = -1;
+                // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1]; j++)
+                // {
+                //     if (kernel_time_table[j] <= eviction_finish_time && kernel_time_table[j+1] > eviction_finish_time)
+                //     {
+                //         eviction_clear_index = j;
+                //         break;
+                //     }
+                // }
+                // Assert(eviction_clear_index >= 0);
+
+
+                //NEW: Use PCIe estimation to get the finishing index
+                int pcie_eviction_clear_index = -1;
+                // pcie_eviction_clear_index = gpu2ssd_BWcheck(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], eviction_clear_index, false, curr_interval->kernelLevel_interval[1]);
+
+
+                //Second calculate the prefetch ideal index
+                // double prefetch_start_time_precise = kernel_time_table[curr_interval->kernelLevel_interval[1]] - ssd_prefetch_estimated_time;
+                // int prefetch_start_index = -1;
+                // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1]; j++)
+                // {
+                //     if (kernel_time_table[j] <= prefetch_start_time_precise && kernel_time_table[j+1] > prefetch_start_time_precise)
+                //     {
+                //         prefetch_start_index = j;
+                //         break;
+                //     }
+                // }
+                // Assert(prefetch_start_index>=0);
+
+                int pcie_prefetch_index = -1;
+                bool abort = false;
+
+                if (0)
+                // if (pcie_eviction_clear_index==-1 && check_CPU_OK(CPU_line - curr_interval->the_tensor->size_in_byte)) //SSD is not OK, CPU is OK
                 {
-                    
-                    //Find the  ideal  finished(clear) index
-                    double eviction_finish_time = kernel_time_table[curr_interval->kernelLevel_interval[0]] + ssd_movement_estimated_time;
-                    int eviction_clear_index = -1;
-                    for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1]; j++)
-                    {
-                        if (kernel_time_table[j] <= eviction_finish_time && kernel_time_table[j+1] > eviction_finish_time)
-                        {
-                            eviction_clear_index = j;
-                            break;
-                        }
-                    }
-                    Assert(eviction_clear_index >= 0);
+                    //Calculate cpu-prefetch-index
+                    // pcie_prefetch_index = pcie2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte*1.0, curr_interval->kernelLevel_interval[1]);
+                    // Assert(pcie_prefetch_index >=0);
+                    // // Get cpu eviction finish index
+                    // pcie_eviction_clear_index = gpu2pcie_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0]);
+                    // Assert(pcie_eviction_clear_index >=0);
 
-
-                    //NEW: Use PCIe estimation to get the finishing index
-                    int pcie_eviction_clear_index = -1;
-                    // pcie_eviction_clear_index = gpu2ssd_BWcheck(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], eviction_clear_index, false, curr_interval->kernelLevel_interval[1]);
-
-
-                    //Second calculate the prefetch ideal index
-                    // double prefetch_start_time_precise = kernel_time_table[curr_interval->kernelLevel_interval[1]] - ssd_prefetch_estimated_time;
-                    // int prefetch_start_index = -1;
-                    // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1]; j++)
-                    // {
-                    //     if (kernel_time_table[j] <= prefetch_start_time_precise && kernel_time_table[j+1] > prefetch_start_time_precise)
-                    //     {
-                    //         prefetch_start_index = j;
-                    //         break;
-                    //     }
-                    // }
-                    // Assert(prefetch_start_index>=0);
-
-                    int pcie_prefetch_index = -1;
-                    bool abort = false;
-
-                    //TODO: fix for CPU
-                    if (0)
-                    // if (pcie_eviction_clear_index==-1 && check_CPU_OK(CPU_line - curr_interval->the_tensor->size_in_byte)) //SSD is not OK, CPU is OK
-                    {
-                        //Calculate cpu-prefetch-index
-                        // pcie_prefetch_index = pcie2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte*1.0, curr_interval->kernelLevel_interval[1]);
-                        // Assert(pcie_prefetch_index >=0);
-                        // // Get cpu eviction finish index
-                        // pcie_eviction_clear_index = gpu2pcie_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0]);
-                        // Assert(pcie_eviction_clear_index >=0);
-
-                        // if(pcie_prefetch_index > pcie_eviction_clear_index){
-                        //     //First schedule the pre-eviction
-                        //     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_CPU, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
-                        //     pre_evict.barrier_end_time = pcie_eviction_clear_index;
-                        //     movement_hints.push_back(pre_evict);
-                        //     //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
-                        //     curr_interval->the_tensor->is_choosed_to_evict = true;
-                        //     curr_interval->is_really_offloaded = true;
-
-                        //     // DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, pcie_prefetch_index, curr_interval->the_tensor);
-                        //     // movement_hints.push_back(pre_fetch);
-                        //     curr_interval->original_prefetch_index = pcie_prefetch_index;
-                        //     curr_interval->evict_finish_index = pcie_eviction_clear_index;
-                        //     offloeded_local_intervals.push_back(curr_interval);
-
-                        //     pcie2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index);
-                        //     gpu2pcie_BWsim(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0]);
-                        //     CPU_add_update_interval(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
-
-                        // }
-                        // else{
-                        //     curr_interval->is_offloaded  = true;
-                        //     continue;
-                        // }
-                    }
-                    else // TODO: start from here
-                    {
-                        //Calculate ssd-prefetch-index
-                        int offload_out_index = -1;
-                        int prefetch_out_index = -1;
-                        pcie_prefetch_index = ssd2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[1], curr_interval->is_looped, curr_interval->kernelLevel_interval[0], prefetch_out_index);
-                        Assert(pcie_prefetch_index >=0);
-                        // Get cpu eviction finish index
-                        pcie_eviction_clear_index = gpu2ssd_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->is_looped, curr_interval->kernelLevel_interval[1], offload_out_index);
-                        Assert(pcie_eviction_clear_index >=0);
-
-                        
-                        for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
-                        {
-                            // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                            if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte )> target_mem_line)
-                            {
-                                abort = true;
-                                break;
-                            }
-                        }
-                        for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1]; j++)
-                        {
-                            // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                            if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte) > target_mem_line)
-                            {
-                                abort = true;
-                                break;
-                            }
-                        }
-                        if (!abort)
-                        {
-                            for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
-                            {
-                                GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                            }
-                            for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1]; j++)
-                            {
-                                GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                            }
-                        }
-                        
-                        if(pcie_prefetch_index > pcie_eviction_clear_index && !abort){
-                            //First schedule the pre-eviction
-                            DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, offload_out_index, curr_interval->the_tensor);
-                            pre_evict.barrier_end_time = pcie_eviction_clear_index % kernel_num;
-                            pre_evict.p_order = pcie_eviction_clear_index;
-                            global_p_order_pos++;
-                            movement_hints.push_back(pre_evict);
-                            curr_interval->the_tensor->is_choosed_to_evict = true;
-                            curr_interval->is_really_offloaded = true;
-                            curr_interval->is_offloaded = true;
-
-                            // DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, pcie_prefetch_index, curr_interval->the_tensor);
-                            // movement_hints.push_back(pre_fetch);
-                            curr_interval->original_prefetch_index = pcie_prefetch_index;
-                            curr_interval->original_prefetch_finish_index = prefetch_out_index;
-                            curr_interval->evict_finish_index = pcie_eviction_clear_index;
-                            offloeded_local_intervals.push_back(curr_interval);
-
-                            Assert(offload_out_index >= 0);
-                            Assert(prefetch_out_index >= 0);
-
-                            ssd2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index);
-                            gpu2ssd_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index);
-                        }
-                        else{
-                            curr_interval->is_offloaded = true;
-                            continue;
-                        }
-                    }
-                    
-                    //minus mem
-                    Assert(pcie_eviction_clear_index>=0);
-                    
-                    if (!abort)
-                    {
-                        for (int j = pcie_eviction_clear_index + 1; j < pcie_prefetch_index; j++)
-                        {
-                            GPU_resident_memory_estimation[j] -= curr_interval->the_tensor->size_in_byte;
-                        }
-                    }
-                    
-                    curr_interval->is_offloaded = true;
-                }
-                else
-                {           
-                    // //Find the finished(clear) index
-                    // double eviction_finish_time = kernel_time_table[curr_interval->kernelLevel_interval[0]] + ssd_movement_estimated_time;
-                    // int eviction_clear_index = -1;
-                    // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1] + kernel_num; j++)  // j is the extended table index
-                    // {
-                    //     if (kernel_time_table_extended[j] <= eviction_finish_time && kernel_time_table_extended[j+1] > eviction_finish_time)
-                    //     {
-                    //         eviction_clear_index = j;
-                    //         break;
-                    //     }
-                    // }
-                    // Assert(eviction_clear_index >= 0);
-
-
-                    // //Second schedule the prefetch
-                    // double prefetch_start_time_precise = kernel_time_table_extended[curr_interval->kernelLevel_interval[1] + kernel_num] - ssd_prefetch_estimated_time;
-                    // int prefetch_start_index = -1;
-                    // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1] + kernel_num; j++)
-                    // {
-                    //     if (kernel_time_table_extended[j] <= prefetch_start_time_precise && kernel_time_table_extended[j+1] > prefetch_start_time_precise)
-                    //     {
-                    //         prefetch_start_index = j;
-                    //         break;
-                    //     }
-                    // }
-                    // Assert(prefetch_start_index>=0);
-
-                    // if (prefetch_start_index!=curr_interval->kernelLevel_interval[0])
-                    // {
+                    // if(pcie_prefetch_index > pcie_eviction_clear_index){
                     //     //First schedule the pre-eviction
-                    //     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
+                    //     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_CPU, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
+                    //     pre_evict.barrier_end_time = pcie_eviction_clear_index;
                     //     movement_hints.push_back(pre_evict);
+                    //     //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                     //     curr_interval->the_tensor->is_choosed_to_evict = true;
                     //     curr_interval->is_really_offloaded = true;
 
-                    //     DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, prefetch_start_index % kernel_num, curr_interval->the_tensor);
-                    //     movement_hints.push_back(pre_fetch);
-                    // }
+                    //     // DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, pcie_prefetch_index, curr_interval->the_tensor);
+                    //     // movement_hints.push_back(pre_fetch);
+                    //     curr_interval->original_prefetch_index = pcie_prefetch_index;
+                    //     curr_interval->evict_finish_index = pcie_eviction_clear_index;
+                    //     offloeded_local_intervals.push_back(curr_interval);
 
+                    //     pcie2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index);
+                    //     gpu2pcie_BWsim(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0]);
+                    //     CPU_add_update_interval(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
+
+                    // }
+                    // else{
+                    //     curr_interval->is_offloaded  = true;
+                    //     continue;
+                    // }
+                }
+                else // TODO: start from here
+                {
                     //Calculate ssd-prefetch-index
-                    int pcie_eviction_clear_index = -1;
-                    int pcie_prefetch_index = -1;
+                    bool offload_to_cpu = false;
                     int offload_out_index = -1;
                     int prefetch_out_index = -1;
-                    bool abort = false;
-
                     pcie_prefetch_index = ssd2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[1], curr_interval->is_looped, curr_interval->kernelLevel_interval[0], prefetch_out_index);
                     Assert(pcie_prefetch_index >=0);
                     // Get cpu eviction finish index
                     pcie_eviction_clear_index = gpu2ssd_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->is_looped, curr_interval->kernelLevel_interval[1], offload_out_index);
                     Assert(pcie_eviction_clear_index >=0);
 
+                    if (((offload_out_index >= curr_interval->kernelLevel_interval[0] + 10) || offload_out_index == -1) && check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+                    {
+                        pcie_eviction_clear_index = gpu2pcie_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->is_looped, curr_interval->kernelLevel_interval[1], offload_out_index);
+                        pcie_prefetch_index = pcie2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[1], curr_interval->is_looped, curr_interval->kernelLevel_interval[0], prefetch_out_index);
+                        offload_to_cpu = true;
+                    }
+
+                    
                     for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
                     {
-                        // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
-                        if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line)
+                        // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
+                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte )> target_mem_line*0.95)
                         {
                             abort = true;
                             break;
                         }
-                        
                     }
-                    for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1] +kernel_num; j++)
+                    for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1]; j++)
                     {
-                        // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
-                        if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line)
+                        // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
+                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
                         {
                             abort = true;
                             break;
                         }
-                        
                     }
-                    
                     if (!abort)
                     {
                         for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
                         {
-                            GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                            GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
                         }
-                        for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1] +kernel_num; j++)
+                        for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1]; j++)
                         {
-                            GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                            GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
                         }
                     }
                     
-                    
-
                     if(pcie_prefetch_index > pcie_eviction_clear_index && !abort){
                         //First schedule the pre-eviction
-                        DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, offload_out_index % kernel_num, curr_interval->the_tensor);
+                        DataMovementHint pre_evict(PageLocation::NOT_KNOWN, offload_to_cpu ? PageLocation::IN_CPU : PageLocation::IN_SSD, offload_out_index, curr_interval->the_tensor);
                         pre_evict.barrier_end_time = pcie_eviction_clear_index % kernel_num;
                         pre_evict.p_order = pcie_eviction_clear_index;
                         global_p_order_pos++;
                         movement_hints.push_back(pre_evict);
-                        //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
                         curr_interval->the_tensor->is_choosed_to_evict = true;
                         curr_interval->is_really_offloaded = true;
+                        curr_interval->is_offloaded = true;
 
                         // DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, pcie_prefetch_index, curr_interval->the_tensor);
                         // movement_hints.push_back(pre_fetch);
-                        curr_interval->original_prefetch_index = pcie_prefetch_index % kernel_num;
+                        curr_interval->original_prefetch_index = pcie_prefetch_index;
                         curr_interval->original_prefetch_finish_index = prefetch_out_index;
-                        curr_interval->evict_finish_index = pcie_eviction_clear_index % kernel_num;
+                        curr_interval->evict_finish_index = pcie_eviction_clear_index;
                         offloeded_local_intervals.push_back(curr_interval);
 
                         Assert(offload_out_index >= 0);
                         Assert(prefetch_out_index >= 0);
 
-                        ssd2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index % kernel_num);
-                        gpu2ssd_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index % kernel_num);
+                        if (offload_to_cpu)
+                        {
+                            CPU_add_update_interval(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
+                            gpu2pcie_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index);
+                            pcie2gpu_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index);
+                        }
+                        else
+                        {
+                            ssd2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index);
+                            gpu2ssd_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index);
+                        }
+
                     }
                     else{
                         curr_interval->is_offloaded = true;
                         continue;
                     }
-
-                    //minus mem
-
-                    if (!abort)
+                }
+                
+                //minus mem
+                Assert(pcie_eviction_clear_index>=0);
+                
+                if (!abort)
+                {
+                    for (int j = pcie_eviction_clear_index + 1; j < pcie_prefetch_index; j++)
                     {
-                        for (int j = pcie_eviction_clear_index + 1; j < pcie_prefetch_index; j++)
-                        {
-                            GPU_resident_memory_estimation[(j%kernel_num)] -= curr_interval->the_tensor->size_in_byte;
-                        }
+                        GPU_resident_memory_estimation[j] -= curr_interval->the_tensor->size_in_byte;
+                    }
+                }
+                
+                curr_interval->is_offloaded = true;
+            }
+            else
+            {           
+                // //Find the finished(clear) index
+                // double eviction_finish_time = kernel_time_table[curr_interval->kernelLevel_interval[0]] + ssd_movement_estimated_time;
+                // int eviction_clear_index = -1;
+                // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1] + kernel_num; j++)  // j is the extended table index
+                // {
+                //     if (kernel_time_table_extended[j] <= eviction_finish_time && kernel_time_table_extended[j+1] > eviction_finish_time)
+                //     {
+                //         eviction_clear_index = j;
+                //         break;
+                //     }
+                // }
+                // Assert(eviction_clear_index >= 0);
+
+
+                // //Second schedule the prefetch
+                // double prefetch_start_time_precise = kernel_time_table_extended[curr_interval->kernelLevel_interval[1] + kernel_num] - ssd_prefetch_estimated_time;
+                // int prefetch_start_index = -1;
+                // for (int j = curr_interval->kernelLevel_interval[0]; j < curr_interval->kernelLevel_interval[1] + kernel_num; j++)
+                // {
+                //     if (kernel_time_table_extended[j] <= prefetch_start_time_precise && kernel_time_table_extended[j+1] > prefetch_start_time_precise)
+                //     {
+                //         prefetch_start_index = j;
+                //         break;
+                //     }
+                // }
+                // Assert(prefetch_start_index>=0);
+
+                // if (prefetch_start_index!=curr_interval->kernelLevel_interval[0])
+                // {
+                //     //First schedule the pre-eviction
+                //     DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
+                //     movement_hints.push_back(pre_evict);
+                //     curr_interval->the_tensor->is_choosed_to_evict = true;
+                //     curr_interval->is_really_offloaded = true;
+
+                //     DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, prefetch_start_index % kernel_num, curr_interval->the_tensor);
+                //     movement_hints.push_back(pre_fetch);
+                // }
+
+                //Calculate ssd-prefetch-index
+                int pcie_eviction_clear_index = -1;
+                bool offload_to_cpu = false;
+                int pcie_prefetch_index = -1;
+                int offload_out_index = -1;
+                int prefetch_out_index = -1;
+                bool abort = false;
+
+                pcie_prefetch_index = ssd2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[1], curr_interval->is_looped, curr_interval->kernelLevel_interval[0], prefetch_out_index);
+                Assert(pcie_prefetch_index >=0);
+                // Get cpu eviction finish index
+                pcie_eviction_clear_index = gpu2ssd_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->is_looped, curr_interval->kernelLevel_interval[1], offload_out_index);
+                Assert(pcie_eviction_clear_index >=0);
+
+                if (((offload_out_index >= curr_interval->kernelLevel_interval[0] + 10) || offload_out_index == -1) && check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+                {
+                    pcie_eviction_clear_index = gpu2pcie_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->is_looped, curr_interval->kernelLevel_interval[1], offload_out_index);
+                    pcie_prefetch_index = pcie2gpu_BWgiveIndx(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[1], curr_interval->is_looped, curr_interval->kernelLevel_interval[0], prefetch_out_index);
+                    offload_to_cpu = true;
+                }
+
+                for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
+                {
+                    // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
+                    {
+                        abort = true;
+                        break;
                     }
                     
-
-                    curr_interval->is_offloaded = true;
+                }
+                for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1] +kernel_num; j++)
+                {
+                    // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
+                    {
+                        abort = true;
+                        break;
+                    }
+                    
+                }
+                
+                if (!abort)
+                {
+                    for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
+                    {
+                        GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                    }
+                    for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1] +kernel_num; j++)
+                    {
+                        GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
+                    }
                 }
                 
                 
+
+                if(pcie_prefetch_index > pcie_eviction_clear_index && !abort){
+                    //First schedule the pre-eviction
+                    DataMovementHint pre_evict(PageLocation::NOT_KNOWN, offload_to_cpu ? PageLocation::IN_CPU : PageLocation::IN_SSD, offload_out_index % kernel_num, curr_interval->the_tensor);
+                    pre_evict.barrier_end_time = pcie_eviction_clear_index % kernel_num;
+                    pre_evict.p_order = pcie_eviction_clear_index;
+                    global_p_order_pos++;
+                    movement_hints.push_back(pre_evict);
+                    //Pre-evict tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<curr_interval->kernelLevel_interval[0]<<std::endl;
+                    curr_interval->the_tensor->is_choosed_to_evict = true;
+                    curr_interval->is_really_offloaded = true;
+
+                    // DataMovementHint pre_fetch(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, pcie_prefetch_index, curr_interval->the_tensor);
+                    // movement_hints.push_back(pre_fetch);
+                    curr_interval->original_prefetch_index = pcie_prefetch_index % kernel_num;
+                    curr_interval->original_prefetch_finish_index = prefetch_out_index;
+                    curr_interval->evict_finish_index = pcie_eviction_clear_index % kernel_num;
+                    offloeded_local_intervals.push_back(curr_interval);
+
+                    Assert(offload_out_index >= 0);
+                    Assert(prefetch_out_index >= 0);
+
+                    if (offload_to_cpu)
+                    {
+                        CPU_add_update_interval(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
+                        gpu2pcie_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index % kernel_num);
+                        pcie2gpu_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index % kernel_num);
+                    }
+                    else
+                    {
+                        ssd2gpu_BWsim(curr_interval->the_tensor->size_in_byte, pcie_prefetch_index % kernel_num);
+                        gpu2ssd_BWsim(curr_interval->the_tensor->size_in_byte, offload_out_index % kernel_num);
+                    }
+                    
+                }
+                else{
+                    curr_interval->is_offloaded = true;
+                    continue;
+                }
+
+                //minus mem
+
+                if (!abort)
+                {
+                    for (int j = pcie_eviction_clear_index + 1; j < pcie_prefetch_index; j++)
+                    {
+                        GPU_resident_memory_estimation[(j%kernel_num)] -= curr_interval->the_tensor->size_in_byte;
+                    }
+                }
+                
+
+                curr_interval->is_offloaded = true;
             }
+                
+                
+            // }
             // else if (curr_interval->time_estimated > cpu_safe_time)
             // {
             //     /* code */
@@ -4492,12 +4701,12 @@ void scheduling_prefetch(){
             //     continue;
             // }
             
+            bool offload_to_cpu = check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
 
             if (!curr_interval->is_looped)  //Not looped
             {
-            
 
-                DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
+                DataMovementHint pre_evict(PageLocation::NOT_KNOWN, offload_to_cpu ? PageLocation::IN_CPU : PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                 pre_evict.barrier_end_time = curr_interval->kernelLevel_interval[0];
                 pre_evict.p_order = global_p_order_neg;
                 global_p_order_neg--;
@@ -4522,7 +4731,7 @@ void scheduling_prefetch(){
             }
             else
             {
-                DataMovementHint pre_evict(PageLocation::NOT_KNOWN, PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
+                DataMovementHint pre_evict(PageLocation::NOT_KNOWN, offload_to_cpu ? PageLocation::IN_CPU : PageLocation::IN_SSD, curr_interval->kernelLevel_interval[0], curr_interval->the_tensor);
                 pre_evict.barrier_end_time = curr_interval->kernelLevel_interval[0];
                 pre_evict.p_order = global_p_order_neg;
                 global_p_order_neg--;
@@ -4632,7 +4841,7 @@ void print_prefetch_table(){
         std::cout << "Issued Time: " << curr.issued_time << " ";
         std::cout << "Tensor: " << curr.tensor->tensor_id << " G:" << (curr.tensor->is_global_weight ? "o" : "x") << " ";
         std::cout << "From: " << Simulator::print_pagelocation_array[curr.from] << ", To: " << Simulator::print_pagelocation_array[curr.to] << std::endl;
-        migration_plan_output<<curr.issued_time<<" "<<curr.tensor->tensor_id<<" "<<(curr.to == PageLocation::IN_GPU ? "1:0" : "21:0")<<" "<<curr.barrier_end_time<<std::endl;
+        migration_plan_output<<curr.issued_time<<" "<<curr.tensor->tensor_id<<" "<<(curr.to == PageLocation::IN_GPU ? "1:0" : ( curr.to == PageLocation::IN_CPU ? "0:0" : "21:0"))<<" "<<curr.barrier_end_time<<std::endl;
     }
     
 }
