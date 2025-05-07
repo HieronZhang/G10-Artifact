@@ -11,7 +11,7 @@ ranks = ["0", "1"]
 
 gpu_sizes = ["84", "82", "80", "78", "76", "74"]
 
-cpu_sizes = ["0", "1024"]
+cpu_sizes = ["0", "102", "385", "1024"]
 
 for i in range(len(settings)):
     # create the directories first

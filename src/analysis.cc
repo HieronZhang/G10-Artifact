@@ -3671,7 +3671,7 @@ void scheduling_prefetch(){
             double area_can_reduce_a = 0;
             double area_can_reduce_b = 0;
 
-            if (a->is_offloaded)
+            if (a->is_offloaded || a->the_tensor->size_in_byte < 2000000)
             {
                 area_can_reduce_a = 0;
             }
@@ -3769,7 +3769,7 @@ void scheduling_prefetch(){
                 }
             }
             
-            if (b->is_offloaded)
+            if (b->is_offloaded || b->the_tensor->size_in_byte < 2000000)
             {
                 area_can_reduce_b = 0;
             }
@@ -3896,6 +3896,12 @@ void scheduling_prefetch(){
             }
             
             if (check_GPU_OK_interval(target_mem_line, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]))
+            {
+                curr_interval->is_offloaded = true;
+                continue;
+            }
+
+            if (curr_interval->the_tensor->size_in_byte < 2000000)
             {
                 curr_interval->is_offloaded = true;
                 continue;
@@ -4533,11 +4539,11 @@ void scheduling_prefetch(){
             double area_can_reduce_a = 0;
             double area_can_reduce_b = 0;
 
-            if (a->is_really_offloaded || a->the_tensor->size_in_byte < 1024*16)
+            if (a->is_really_offloaded || a->the_tensor->size_in_byte < 1024*32)
             {
                 area_can_reduce_a = 0;
             }
-            else if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*16)
+            else if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
             {
                 area_can_reduce_a = 10000;
             }
@@ -4594,7 +4600,7 @@ void scheduling_prefetch(){
                 }
             }
 
-            if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*16)
+            if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
             {
                 area_can_reduce_b = 0;
             }
