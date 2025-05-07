@@ -41,7 +41,11 @@ class DataMovementHint {
       barrier_end_time = -1;
     }
     bool operator<(const DataMovementHint& rhs) const {
-      return issued_time < rhs.issued_time;
+      if (issued_time == rhs.issued_time) {
+        return p_order < rhs.p_order;
+      }
+      else
+        return issued_time < rhs.issued_time;
     }
     
     PageLocation from;
@@ -49,6 +53,7 @@ class DataMovementHint {
     string human_readable_hint;
     int issued_time;
     int barrier_end_time;
+    long p_order;
     Tensor* tensor;
 };
 

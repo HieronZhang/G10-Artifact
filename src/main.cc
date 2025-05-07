@@ -77,6 +77,7 @@ bool is_UVM = true;
 int num_iteration = -1;
 int is_transformer = -1;
 int borden = 184;
+int algo_speedup = 10;
 
 // 
 extern double CPU_memory_line_GB;
@@ -109,6 +110,7 @@ std::string pf_kernel_time_file;
 std::string stat_output_file;
 std::string output_folder_name;
 std::string input_semantic_filename = "semantics.in";
+std::string migration_plan_output_file = "migration_plan.txt";
 // simulation switches
 bool is_simulation = true;
 bool output_override = false;
@@ -448,6 +450,8 @@ int main(int argc, char *argv[]) {
         else if (command == "is_UVM")                   { is_UVM = std::stoi(value) != 0; }
         else if (command == "use_prefetch")             { use_prefetch = std::stoi(value) != 0; }
         else if (command == "nn_model_input_file")      { nn_model_input_file = value; }
+        else if (command == "migration_plan_file")      { migration_plan_output_file = value; }
+        else if (command == "algo_speedup" )            { algo_speedup = std::stoi(value); }
         else if (command == "input_directory")          { semantic_in_dir = value; }
         else if (command == "orig_kernel_time_file")    { orig_kernel_time_file = value; }
         else if (command == "workspace_size_file")      { workspace_size_file = value; }
@@ -573,7 +577,9 @@ int main(int argc, char *argv[]) {
 
     parse_temperal(input_semantic_filename.c_str());
 
-    migration_plan_output.open("migration_plan.txt");
+    migration_plan_output_file = output_folder_name + "/" + "migration_plan.txt";
+
+    migration_plan_output.open(migration_plan_output_file);
 
     // return 0;
 
@@ -724,7 +730,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
-        give_eviction_guide();
+        // give_eviction_guide();
 
 
 
@@ -995,14 +1001,14 @@ int main(int argc, char *argv[]) {
         // print_eviction_guide_table();
         // delete r;
 
-        r = new RedirStdOut("pre_dealloc.config");
-        scheduling_prefetch();
-        delete r;
+        // r = new RedirStdOut("pre_dealloc.config");
+        // scheduling_prefetch();
+        // delete r;
 
-        // prefetch guide
-        r = new RedirStdOut("prefetch_guide.config");
-        print_prefetch_table();
-        delete r;
+        // // prefetch guide
+        // r = new RedirStdOut("prefetch_guide.config");
+        // print_prefetch_table();
+        // delete r;
 
         
 
@@ -1019,6 +1025,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
+        return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);
