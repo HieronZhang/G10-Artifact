@@ -5,20 +5,24 @@ import sys
 settings = ["8b_16_2k_4ubs", "8b_32_2k_4ubs", "8b_64_1k_8ubs", "8b_64_2k_4ubs", "8b_64_4k_2ubs", "8b_128_2k_4ubs", "70b_8_2k_1ubs", "70b_16_1k_1ubs", "70b_16_2k_1ubs", "70b_16_3k_1ubs", "70b_16_4k_1ubs", "70b_32_2k_1ubs", "70b_64_2k_1ubs"
             , "granite_8b_bs16_seq4k_ubs4", "granite_8b_bs32_seq4k_ubs4", "granite_8b_bs64_seq4k_ubs4", "granite_8b_bs64_seq2k_ubs8", "granite_8b_bs64_seq8k_ubs2", "granite_8b_bs128_seq4k_ubs4"]
 
-speedups = ["1", "5", "10", "10", "10", "40", "40", "80", "80", "80", "80", "160", "320", "20", "40", "40", "40", "40", "40"]
+speedups = ["1", "5", "10", "10", "10", "40", "40", "100", "100", "100", "100", "240", "320", "20", "40", "40", "40", "40", "40"]
 
 ranks = ["0", "1"]
 
-gpu_sizes = ["84", "82", "80", "78", "76", "74"]
+gpu_sizes = ["82", "80", "78", "76"]
 
-cpu_sizes = ["0", "102", "385", "1024"]
+cpu_sizes = ["85", "85", "85", "85", "85", "85", "385", "385","385","385","385","385","385","102","102","102","102","102","102"]
 
 for i in range(len(settings)):
     # create the directories first
     model_i = settings[i]
     speedup = speedups[i]
     for rank in ranks:
-        for cpu_size in cpu_sizes:
+        for j in range(2):
+            if j == 0:
+                cpu_size = cpu_sizes[i]
+            else:
+                cpu_size = "0"
             for gpu_size in gpu_sizes:
                 output_dir = "torchtitan_" + rank + "_" + model_i + "_gpu" + gpu_size + "_cpu" + cpu_size
                 directory_name = "data_" + model_i
@@ -47,13 +51,13 @@ GPU_PCIe_bandwidth_GBps 64
 GPU_malloc_uspB         0.000000814
 GPU_free_uspB           0
 
-SSD_PCIe_bandwidth_GBps 16
+SSD_PCIe_bandwidth_GBps {"16" if cpu_size == "0" else "11"}
 SSD_read_latency_us     12
 SSD_write_latency_us    16
 SSD_latency_us          20
 
 
-CPU_PCIe_bandwidth_GBps 52
+CPU_PCIe_bandwidth_GBps 54
 CPU_memory_line_GB      {cpu_size}
 
 
