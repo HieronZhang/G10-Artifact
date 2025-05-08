@@ -4760,6 +4760,11 @@ void scheduling_prefetch(){
                 }
 
             }
+
+            if (offload_to_cpu)
+            {
+                CPU_add_update_interval(curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
+            }
         }
         if (need_to_break)
         {
