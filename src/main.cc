@@ -1025,7 +1025,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
 
-        return 0;
+        // return 0;
 
         nprintf("Average interval time: %f ms\n\n", 
                 interval_list[(interval_list.size() - 1) / 2]->time_estimated);

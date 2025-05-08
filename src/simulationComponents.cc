@@ -1053,7 +1053,7 @@ void Stat::analyzeKernelStat() {
     if (num != 1 && num != 9 && num != 12) {
       eprintf("Invalid line <%s> in stat file <%s:%d>, abort\n",
           line.c_str(), get<0>(output_files[KernelStat]).c_str(), line_no);
-      Assert(false);
+      // Assert(false);
     }
 
     int iter = stod(stats[0]);

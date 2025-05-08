@@ -3379,12 +3379,12 @@ void scheduling_prefetch(){
             // {
             //     if (kernel_time_table[j] <= pre_alloc_start_time_precise && kernel_time_table[j+1] > pre_alloc_start_time_precise)
             //     {
-            //         if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL"){
-            //             DataMovementHint pre_allo(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, j, curr_tensor);
-            //             movement_hints.push_back(pre_allo);
-            //         }
-            //         issue_index = j;
-            //         break;
+            if (migration_policy_str!="G10GDSSSD_D" && migration_policy_str!="G10GDSFULL"){
+                DataMovementHint pre_allo(PageLocation::NOT_KNOWN, PageLocation::IN_GPU, birth_date_index, curr_tensor);
+                movement_hints.push_back(pre_allo);
+            }
+                    // issue_index = j;
+                    // break;
             //     }
             // }
             
@@ -3405,10 +3405,10 @@ void scheduling_prefetch(){
                 death_index = curr_tensor->live_interval[0] + 1;
             }
             
-            // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL"){
-            //     DataMovementHint pre_dallo(PageLocation::NOT_KNOWN, PageLocation::NOT_PRESENT, death_index, curr_tensor);
-            //     movement_hints.push_back(pre_dallo);
-            // }
+            if (migration_policy_str!="G10GDSSSD_D" && migration_policy_str!="G10GDSFULL"){
+                DataMovementHint pre_dallo(PageLocation::NOT_KNOWN, PageLocation::NOT_PRESENT, death_index, curr_tensor);
+                movement_hints.push_back(pre_dallo);
+            }
 
             //double deallo_time = curr_tensor->size_in_byte * GPU_free_uspB;
             // double deallo_time = 0;
@@ -3448,6 +3448,8 @@ void scheduling_prefetch(){
     
     std::cerr<<"After pre-deallocation"<<std::endl;
     print_GPU_mem_estimation("liveness");
+
+    // return;
 
     for (int j = 0; j < GPU_resident_memory_estimation.size(); j++)
     {
