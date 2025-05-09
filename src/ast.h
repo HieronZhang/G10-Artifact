@@ -358,6 +358,7 @@ class Hidding_Interval
     int original_prefetch_finish_index;
     int evict_finish_index;
     double time_estimated;   //us
+    double area_can_reduce = 0;
     long GPU_mem_line;
     Tensor* the_tensor;
     Hidding_Interval(Tensor* t, long GPU_line){the_tensor = t; is_looped = false; is_offloaded = false; is_really_offloaded =false; GPU_mem_line = GPU_line; original_prefetch_index = -1; evict_finish_index = -1;};

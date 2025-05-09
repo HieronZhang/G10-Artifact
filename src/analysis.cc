@@ -3672,19 +3672,15 @@ void scheduling_prefetch(){
         }
 
 
-        //Sort the intervals
-        std::sort(interval_list.begin(), interval_list.end(), [](Hidding_Interval* a, Hidding_Interval* b){
+        //Calculate the area can be reduced for the sort
+        for (int j = 0; j < interval_list.size(); j++)
+        {
+            Hidding_Interval* a = interval_list[j];
             double area_can_reduce_a = 0;
-            double area_can_reduce_b = 0;
-
             if (a->is_offloaded || a->the_tensor->size_in_byte < 2000000)
             {
                 area_can_reduce_a = 0;
                 a->is_offloaded = true;
-            }
-            else if (b->is_offloaded)
-            {
-                area_can_reduce_a = 100000;
             }
             else
             {
@@ -3764,116 +3760,215 @@ void scheduling_prefetch(){
                             }
                         }
                     }
-                    
-
-                    // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1] + kernel_list.size(); j++)
-                    // {
-                    //     if (GPU_resident_memory_estimation[j%kernel_list.size()] > a->GPU_mem_line)
-                    //     {
-                    //         area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j+1)%(kernel_list.size()+1)] - kernel_time_table[j%(kernel_list.size()+1)]);
-                    //     }
-                    // }
                 }
             }
+            a->area_can_reduce = area_can_reduce_a;
+        }
+        
+
+
+        //Sort the intervals
+        std::sort(interval_list.begin(), interval_list.end(), [](Hidding_Interval* a, Hidding_Interval* b){
+            double area_can_reduce_a = a->area_can_reduce;
+            double area_can_reduce_b = b->area_can_reduce;
+
+            // if (a->is_offloaded || a->the_tensor->size_in_byte < 2000000)
+            // {
+            //     area_can_reduce_a = 0;
+            //     a->is_offloaded = true;
+            // }
+            // else if (b->is_offloaded)
+            // {
+            //     area_can_reduce_a = 100000;
+            // }
+            // else
+            // {
+            //     if (!(a->is_looped))
+            //     {
+            //         int offload_mid_index;
+            //         int prefetch_mid_index;
+            //         int offload_out = -1;
+            //         int prefetch_out;
+            //         // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+            //         // {
+            //         //     offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
+            //         //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
+            //         // }
+            //         // else {
+            //         offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], false, a->kernelLevel_interval[1], offload_out);
+            //         prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0], prefetch_out);
+            //         // }
+            //         if (((offload_out >= a->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+            //         {
+            //             offload_mid_index = gpu2pcie_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], false, a->kernelLevel_interval[1], offload_out);
+            //             prefetch_mid_index = pcie2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], false, a->kernelLevel_interval[0], prefetch_out);
+            //         }
+
+            //         //Optimization: quick check
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > a->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > a->GPU_mem_line
+            //          && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line)
+            //         {
+            //             area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j] > a->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+            //                 }
+            //             }
+            //         }
+            //     }
+            //     else
+            //     {
+            //         int offload_mid_index;
+            //         int prefetch_mid_index;
+            //         int offload_out = -1;
+            //         int prefetch_out;
+            //         // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+            //         // {
+            //         //     offload_mid_index = gpu2ssd_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[0]);
+            //         //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(a->the_tensor->size_in_byte, a->kernelLevel_interval[1]);
+            //         // }
+            //         // else {
+            //         offload_mid_index = gpu2ssd_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], true, a->kernelLevel_interval[1], offload_out);
+            //         prefetch_mid_index = ssd2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0], prefetch_out);
+            //         // }
+            //         if (((offload_out >= a->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+            //         {
+            //             offload_mid_index = gpu2pcie_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[0], true, a->kernelLevel_interval[1], offload_out);
+            //             prefetch_mid_index = pcie2gpu_BWgiveIndx(a->the_tensor->size_in_byte, a->kernelLevel_interval[1], true, a->kernelLevel_interval[0], prefetch_out);
+            //         }
+
+
+            //         //Optimization: quick check
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
+            //             && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line)
+            //         {
+            //             area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j % kernel_num] > a->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+            //                 }
+            //             }
+            //         }
+                    
+
+            //         // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1] + kernel_list.size(); j++)
+            //         // {
+            //         //     if (GPU_resident_memory_estimation[j%kernel_list.size()] > a->GPU_mem_line)
+            //         //     {
+            //         //         area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j+1)%(kernel_list.size()+1)] - kernel_time_table[j%(kernel_list.size()+1)]);
+            //         //     }
+            //         // }
+            //     }
+            // }
             
-            if (b->is_offloaded || b->the_tensor->size_in_byte < 2000000)
-            {
-                area_can_reduce_b = 0;
-                b->is_offloaded = true;
-            }
-            else if (a->is_offloaded)
-            {
-                area_can_reduce_b = 100000;
-            }
-            else
-            {
-                if (!(b->is_looped))
-                {
-                    int offload_mid_index;
-                    int prefetch_mid_index;
-                    int offload_out = -1;
-                    int prefetch_out;
-                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
-                    // {
-                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
-                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
-                    // }
-                    // else {
-                    offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
-                    prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
-                    // }
-                    if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
-                    {
-                        offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
-                    }
+            // if (b->is_offloaded || b->the_tensor->size_in_byte < 2000000)
+            // {
+            //     area_can_reduce_b = 0;
+            //     b->is_offloaded = true;
+            // }
+            // else if (a->is_offloaded)
+            // {
+            //     area_can_reduce_b = 100000;
+            // }
+            // else
+            // {
+            //     if (!(b->is_looped))
+            //     {
+            //         int offload_mid_index;
+            //         int prefetch_mid_index;
+            //         int offload_out = -1;
+            //         int prefetch_out;
+            //         // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+            //         // {
+            //         //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
+            //         //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
+            //         // }
+            //         // else {
+            //         offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
+            //         prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
+            //         // }
+            //         if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+            //         {
+            //             offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], false, b->kernelLevel_interval[1], offload_out);
+            //             prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], false, b->kernelLevel_interval[0], prefetch_out);
+            //         }
 
 
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > b->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > b->GPU_mem_line
-                        && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line)
-                    {
-                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
-                    }
-                    else
-                    {
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
-                        {
-                            if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
-                            {
-                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
-                            }
-                        }
-                    }
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > b->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > b->GPU_mem_line
+            //             && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line)
+            //         {
+            //             area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+            //                 }
+            //             }
+            //         }
                     
-                }
-                else
-                {
-                    int offload_mid_index;
-                    int prefetch_mid_index;
-                    int offload_out = -1;
-                    int prefetch_out;
-                    // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
-                    // {
-                    //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
-                    //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
-                    // }
-                    // else {
-                    offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
-                    prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
-                    // }
-                    if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
-                    {
-                        offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
-                        prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
-                    }
+            //     }
+            //     else
+            //     {
+            //         int offload_mid_index;
+            //         int prefetch_mid_index;
+            //         int offload_out = -1;
+            //         int prefetch_out;
+            //         // if (migration_policy_str!="G10GDSSSD" && migration_policy_str!="G10GDSFULL")
+            //         // {
+            //         //     offload_mid_index = gpu2ssd_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[0]);
+            //         //     prefetch_mid_index = ssd2gpu_BWgiveIndx_half(b->the_tensor->size_in_byte, b->kernelLevel_interval[1]);
+            //         // }
+            //         // else {
+            //         offload_mid_index = gpu2ssd_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
+            //         prefetch_mid_index = ssd2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
+            //         // }
+            //         if (((offload_out >= b->kernelLevel_interval[0] + 10) || offload_out == -1) && check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1])) // SSD bandwidth is somehow busy
+            //         {
+            //             offload_mid_index = gpu2pcie_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[0], true, b->kernelLevel_interval[1], offload_out);
+            //             prefetch_mid_index = pcie2gpu_BWgiveIndx(b->the_tensor->size_in_byte, b->kernelLevel_interval[1], true, b->kernelLevel_interval[0], prefetch_out);
+            //         }
 
 
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
-                        && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
-                    {
-                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
-                    }
-                    else
-                    {
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
+            //             && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
+            //         {
+            //             area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[((prefetch_mid_index-1) % kernel_num) + 1] - kernel_time_table[offload_mid_index % kernel_num]);
+            //         }
+            //         else
+            //         {
                         
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
-                        {
-                            if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
-                            {
-                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
-                            }
-                        }
-                    }
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+            //                 }
+            //             }
+            //         }
 
-                    // for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1] + kernel_list.size(); j++)
-                    // {
-                    //     if (GPU_resident_memory_estimation[j%kernel_list.size()] > b->GPU_mem_line)
-                    //     {
-                    //         area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j+1)%(kernel_list.size()+1)] - kernel_time_table[j%(kernel_list.size()+1)]);
-                    //     }
-                    // }
-                }
-            }
+            //         // for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1] + kernel_list.size(); j++)
+            //         // {
+            //         //     if (GPU_resident_memory_estimation[j%kernel_list.size()] > b->GPU_mem_line)
+            //         //     {
+            //         //         area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j+1)%(kernel_list.size()+1)] - kernel_time_table[j%(kernel_list.size()+1)]);
+            //         //     }
+            //         // }
+            //     }
+            // }
             
 
             if (area_can_reduce_a != 0 && area_can_reduce_b != 0 && ((a->the_tensor->size_in_byte) - (b->the_tensor->size_in_byte) < 200000000) && ((a->the_tensor->size_in_byte) - (b->the_tensor->size_in_byte) > -200000000) && (a->the_tensor->size_in_byte) > 2000000 && (b->the_tensor->size_in_byte) > 2000000)
@@ -4640,19 +4735,13 @@ void scheduling_prefetch(){
             break;
         }
 
-
-        //Sort the intervals
-        std::sort(interval_list.begin(), interval_list.end(), [](Hidding_Interval* a, Hidding_Interval* b){
+        for (int j = 0; j < interval_list.size(); j++)
+        {
+            Hidding_Interval* a = interval_list[j];
             double area_can_reduce_a = 0;
-            double area_can_reduce_b = 0;
-
             if (a->is_really_offloaded || a->the_tensor->size_in_byte < 1024*32)
             {
                 area_can_reduce_a = 0;
-            }
-            else if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
-            {
-                area_can_reduce_a = 10;
             }
             else
             {
@@ -4858,215 +4947,437 @@ void scheduling_prefetch(){
                 }
             }
 
-            if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
-            {
-                area_can_reduce_b = 0;
-            }
-            else if (area_can_reduce_a == 0)
-            {
-                area_can_reduce_b = 10;
-            }
-            else
-            {
-                if (!(b->is_looped))
-                {
-                    int offload_mid_index = -1;
-                    int prefetch_mid_index = -1;
-                    // offload_mid_index = b->kernelLevel_interval[0];
-                    // prefetch_mid_index = b->kernelLevel_interval[1];
+            a->area_can_reduce = area_can_reduce_a;
+        }
+        
 
-                    bool cpu_ok = check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1]);
-                    bool cpu_doable = false;
-                    bool overall_doable = false;
 
-                    if (cpu_ok)
-                    {
-                        bool find_offload = false;
-                        for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1]; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2C[j])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
-                        bool find_prefetch = false;
-                        for (int j = b->kernelLevel_interval[1]; j > b->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_C2G[j])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            cpu_doable = true;
-                            overall_doable = true;
-                        }
+        //Sort the intervals
+        std::sort(interval_list.begin(), interval_list.end(), [](Hidding_Interval* a, Hidding_Interval* b){
+            double area_can_reduce_a = a->area_can_reduce;
+            double area_can_reduce_b = b->area_can_reduce;
+
+            // if (a->is_really_offloaded || a->the_tensor->size_in_byte < 1024*32)
+            // {
+            //     area_can_reduce_a = 0;
+            // }
+            // else if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
+            // {
+            //     area_can_reduce_a = 10;
+            // }
+            // else
+            // {
+            //     if (!(a->is_looped))
+            //     {
+            //         int offload_mid_index = -1;
+            //         int prefetch_mid_index = -1;
+            //         // offload_mid_index = a->kernelLevel_interval[0];
+            //         // prefetch_mid_index = a->kernelLevel_interval[1];
+
+            //         bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
+            //         bool cpu_doable = false;
+            //         bool overall_doable = false;
+
+            //         if (cpu_ok)
+            //         {
+            //             bool find_offload = false;
+            //             for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2C[j])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_C2G[j])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 cpu_doable = true;
+            //                 overall_doable = true;
+            //             }
                         
-                    }
+            //         }
 
-                    if(!cpu_doable){
-                        bool find_offload = false;
-                        for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1]; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
-                        bool find_prefetch = false;
-                        for (int j = b->kernelLevel_interval[1]; j > b->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            overall_doable = true;
-                        }
-                    }
+            //         if(!cpu_doable){
+            //             bool find_offload = false;
+            //             for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2S[j])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_S2G[j])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 overall_doable = true;
+            //             }
+            //         }
 
-                    if (!overall_doable)
-                    {
-                        offload_mid_index = b->kernelLevel_interval[0];
-                        prefetch_mid_index = b->kernelLevel_interval[1];
-                        b->gar_for_step2_offloading = true;
-                    }
+            //         if (!overall_doable)
+            //         {
+            //             offload_mid_index = a->kernelLevel_interval[0];
+            //             prefetch_mid_index = a->kernelLevel_interval[1];
+            //             a->gar_for_step2_offloading = true;
+            //         }
+                    
+
+            //         //Optimization: quick check
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > a->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > a->GPU_mem_line
+            //         && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line)
+            //         {
+            //             area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j] > a->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+            //                 }
+            //             }
+            //         }
+
+            //         if (!overall_doable)
+            //         {
+            //             area_can_reduce_a = area_can_reduce_a * 0.1;
+            //         }
+
+            //     }
+            //     else
+            //     {
+            //         int offload_mid_index = -1;
+            //         int prefetch_mid_index = -1;
+            //         // offload_mid_index = a->kernelLevel_interval[0];
+            //         // prefetch_mid_index = a->kernelLevel_interval[1] + kernel_num;
 
 
+            //         bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
+            //         bool cpu_doable = false;
+            //         bool overall_doable = false;
+            //         int needed_index = a->kernelLevel_interval[1] + kernel_num;
 
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > b->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > b->GPU_mem_line
-                        && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line)
-                    {
-                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
-                    }
-                    else
-                    {
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
-                        {
-                            if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
-                            {
-                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
-                            }
-                        }
-                    }
-
-                    if(!overall_doable)
-                    {
-                        area_can_reduce_b = area_can_reduce_b * 0.1;
-                    }
-                }
-                else
-                {
-                    int offload_mid_index = -1;
-                    int prefetch_mid_index = -1;
-                    // offload_mid_index = b->kernelLevel_interval[0];
-                    // prefetch_mid_index = b->kernelLevel_interval[1] + kernel_num;
-
-
-                    bool cpu_ok = check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1]);
-                    bool cpu_doable = false;
-                    bool overall_doable = false;
-                    int needed_index = b->kernelLevel_interval[1] + kernel_num;
-
-                    if (cpu_ok)
-                    {
-                        bool find_offload = false;
-                        for (int j = b->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > b->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            cpu_doable = true;
-                            overall_doable = true;
-                        }
+            //         if (cpu_ok)
+            //         {
+            //             bool find_offload = false;
+            //             for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 cpu_doable = true;
+            //                 overall_doable = true;
+            //             }
                         
-                    }
+            //         }
 
-                    if(!cpu_doable){
-                        bool find_offload = false;
-                        for (int j = b->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > b->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            overall_doable = true;
-                        }
-                    }
+            //         if(!cpu_doable){
+            //             bool find_offload = false;
+            //             for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 overall_doable = true;
+            //             }
+            //         }
 
-                    if (!overall_doable)
-                    {
-                        offload_mid_index = b->kernelLevel_interval[0];
-                        prefetch_mid_index = needed_index;
-                        b->gar_for_step2_offloading = true;
-                    }
+            //         if (!overall_doable)
+            //         {
+            //             offload_mid_index = a->kernelLevel_interval[0];
+            //             prefetch_mid_index = needed_index;
+            //             a->gar_for_step2_offloading = true;
+            //         }
 
 
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
-                        && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
-                    {
-                        area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
-                    }
-                    else
-                    {
+            //         //Optimization: quick check
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
+            //             && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line)
+            //         {
+            //             area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j % kernel_num] > a->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_a += a->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+            //                 }
+            //             }
+            //         }
+
+            //         if(!overall_doable)
+            //         {
+            //             area_can_reduce_a = area_can_reduce_a * 0.1;
+            //         }
+
+            //     }
+            // }
+
+            // if (b->is_really_offloaded || b->the_tensor->size_in_byte < 1024*32)
+            // {
+            //     area_can_reduce_b = 0;
+            // }
+            // else if (area_can_reduce_a == 0)
+            // {
+            //     area_can_reduce_b = 10;
+            // }
+            // else
+            // {
+            //     if (!(b->is_looped))
+            //     {
+            //         int offload_mid_index = -1;
+            //         int prefetch_mid_index = -1;
+            //         // offload_mid_index = b->kernelLevel_interval[0];
+            //         // prefetch_mid_index = b->kernelLevel_interval[1];
+
+            //         bool cpu_ok = check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1]);
+            //         bool cpu_doable = false;
+            //         bool overall_doable = false;
+
+            //         if (cpu_ok)
+            //         {
+            //             bool find_offload = false;
+            //             for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1]; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2C[j])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = b->kernelLevel_interval[1]; j > b->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_C2G[j])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 cpu_doable = true;
+            //                 overall_doable = true;
+            //             }
                         
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
-                        {
-                            if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
-                            {
-                                area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
-                            }
-                        }
-                    }
+            //         }
 
-                    if(!overall_doable){
-                        area_can_reduce_b = area_can_reduce_b * 0.1;
-                    }
+            //         if(!cpu_doable){
+            //             bool find_offload = false;
+            //             for (int j = b->kernelLevel_interval[0]; j < b->kernelLevel_interval[1]; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2S[j])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = b->kernelLevel_interval[1]; j > b->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_S2G[j])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 overall_doable = true;
+            //             }
+            //         }
 
-                }
-            }
+            //         if (!overall_doable)
+            //         {
+            //             offload_mid_index = b->kernelLevel_interval[0];
+            //             prefetch_mid_index = b->kernelLevel_interval[1];
+            //             b->gar_for_step2_offloading = true;
+            //         }
+
+
+
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > b->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > b->GPU_mem_line
+            //             && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > b->GPU_mem_line)
+            //         {
+            //             area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j] > b->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[j+1] - kernel_time_table[j]);
+            //                 }
+            //             }
+            //         }
+
+            //         if(!overall_doable)
+            //         {
+            //             area_can_reduce_b = area_can_reduce_b * 0.1;
+            //         }
+            //     }
+            //     else
+            //     {
+            //         int offload_mid_index = -1;
+            //         int prefetch_mid_index = -1;
+            //         // offload_mid_index = b->kernelLevel_interval[0];
+            //         // prefetch_mid_index = b->kernelLevel_interval[1] + kernel_num;
+
+
+            //         bool cpu_ok = check_CPU_OK_interval(CPU_line - b->the_tensor->size_in_byte, b->kernelLevel_interval[0], b->kernelLevel_interval[1]);
+            //         bool cpu_doable = false;
+            //         bool overall_doable = false;
+            //         int needed_index = b->kernelLevel_interval[1] + kernel_num;
+
+            //         if (cpu_ok)
+            //         {
+            //             bool find_offload = false;
+            //             for (int j = b->kernelLevel_interval[0]; j < needed_index; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = needed_index; j > b->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 cpu_doable = true;
+            //                 overall_doable = true;
+            //             }
+                        
+            //         }
+
+            //         if(!cpu_doable){
+            //             bool find_offload = false;
+            //             for (int j = b->kernelLevel_interval[0]; j < needed_index; j++)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
+            //                 {
+            //                     offload_mid_index = j;
+            //                     find_offload = true;
+            //                     break;
+            //                 }
+            //             }
+            //             bool find_prefetch = false;
+            //             for (int j = needed_index; j > b->kernelLevel_interval[0]; j--)
+            //             {
+            //                 if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
+            //                 {
+            //                     prefetch_mid_index = j;
+            //                     find_prefetch = true;
+            //                     break;
+            //                 }
+            //             }
+            //             if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+            //             {
+            //                 overall_doable = true;
+            //             }
+            //         }
+
+            //         if (!overall_doable)
+            //         {
+            //             offload_mid_index = b->kernelLevel_interval[0];
+            //             prefetch_mid_index = needed_index;
+            //             b->gar_for_step2_offloading = true;
+            //         }
+
+
+            //         if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > b->GPU_mem_line
+            //             && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > b->GPU_mem_line)
+            //         {
+            //             area_can_reduce_b = b->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
+            //         }
+            //         else
+            //         {
+                        
+            //             for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+            //             {
+            //                 if (GPU_resident_memory_estimation[j % kernel_num] > b->GPU_mem_line)
+            //                 {
+            //                     area_can_reduce_b += b->the_tensor->size_in_byte * (kernel_time_table[(j % kernel_num) + 1] - kernel_time_table[j % kernel_num]);
+            //                 }
+            //             }
+            //         }
+
+            //         if(!overall_doable){
+            //             area_can_reduce_b = area_can_reduce_b * 0.1;
+            //         }
+
+            //     }
+            // }
 
 
             bool ret;

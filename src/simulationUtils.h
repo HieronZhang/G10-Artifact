@@ -52,7 +52,7 @@ class DataMovementHint {
     
     PageLocation from;
     PageLocation to;
-    MigrationDirection direction;
+    MigrationDirection direction = Others;
     string human_readable_hint;
     int issued_time;
     int barrier_end_time;
