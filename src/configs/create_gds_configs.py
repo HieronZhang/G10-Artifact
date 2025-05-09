@@ -3,28 +3,36 @@ import os
 import sys
 
 settings = ["8b_16_2k_4ubs", "8b_32_2k_4ubs", "8b_64_1k_8ubs", "8b_64_2k_4ubs", "8b_64_4k_2ubs", "8b_128_2k_4ubs", "70b_8_2k_1ubs", "70b_16_1k_1ubs", "70b_16_2k_1ubs", "70b_16_3k_1ubs", "70b_16_4k_1ubs", "70b_32_2k_1ubs", "70b_64_2k_1ubs"
-            , "granite_8b_bs16_seq4k_ubs4", "granite_8b_bs32_seq4k_ubs4", "granite_8b_bs64_seq4k_ubs4", "granite_8b_bs64_seq2k_ubs8", "granite_8b_bs64_seq8k_ubs2", "granite_8b_bs128_seq4k_ubs4"]
+            , "granite_8b_bs16_seq4k_ubs4", "granite_8b_bs32_seq4k_ubs4", "granite_8b_bs64_seq4k_ubs4", "granite_8b_bs64_seq2k_ubs8", "granite_8b_bs64_seq8k_ubs2", "granite_8b_bs128_seq4k_ubs4"
+            , "70b_8_2k_2ubs", "70b_16_1k_2ubs", "70b_16_2k_2ubs", "70b_16_3k_2ubs", "70b_16_4k_2ubs", "70b_32_2k_2ubs", "70b_32_2k_4ubs"]
 
-speedups = ["1", "5", "10", "10", "10", "40", "40", "100", "100", "100", "100", "240", "320", "20", "40", "40", "40", "40", "40"]
+speedups = ["1", "5", "10", "10", "10", "40", "40", "100", "100", "100", "100", "240", "320", "20", "40", "40", "40", "40", "40",  "20", "40", "40", "40", "40", "100", "100"]
 
 ranks = ["0", "1"]
 
 gpu_sizes = ["82", "80", "78", "76"]
 
-cpu_sizes = ["85", "85", "85", "85", "85", "85", "385", "385","385","385","385","385","385","102","102","102","102","102","102"]
+cpu_sizes = [["130", "130", "130", "130", "130", "130", "422", "422","422","422","422","422","422","137","137","137","137","137","137", "422","422","422","422","422","422", "422"],
+             ["40", "40", "40", "40", "40", "40",  "348", "348","348","348","348","348","348","65","65","65","65","65","65", "348","348","348","348","348","348", "348"]]
 
 for i in range(len(settings)):
     # create the directories first
     model_i = settings[i]
     speedup = speedups[i]
+    cpu_usage = ""
     for rank in ranks:
         for j in range(2):
             if j == 0:
-                cpu_size = cpu_sizes[i]
+                if rank == "0":
+                    cpu_size = cpu_sizes[0][i]
+                else:
+                    cpu_size = cpu_sizes[1][i]
+                cpu_usage = "mixed"
             else:
                 cpu_size = "0"
+                cpu_usage = "ssdonly"
             for gpu_size in gpu_sizes:
-                output_dir = "torchtitan_" + rank + "_" + model_i + "_gpu" + gpu_size + "_cpu" + cpu_size
+                output_dir = "torchtitan_" + rank + "_" + model_i + "_gpu" + gpu_size + "_" + cpu_usage
                 directory_name = "data_" + model_i
                 filename = model_i + "/" + f"rank{rank}" + f"_gpu{gpu_size}" + f"_cpu{cpu_size}"
                 directory = os.path.dirname(filename)

@@ -21,6 +21,8 @@ namespace Simulator {
 
 enum PageLocation{ NOT_PRESENT, IN_SSD, IN_CPU, IN_GPU, NOT_KNOWN, IN_GPU_LEAST };
 
+enum MigrationDirection{ Others, G2S, S2G, C2G, G2C};
+
 const std::string print_pagelocation_array [6] = {
     "Not_present", "In_ssd", "In_cpu", "In_gpu", "Not_Known", "In_gpu_least"
 };
@@ -50,6 +52,7 @@ class DataMovementHint {
     
     PageLocation from;
     PageLocation to;
+    MigrationDirection direction;
     string human_readable_hint;
     int issued_time;
     int barrier_end_time;

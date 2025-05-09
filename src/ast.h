@@ -350,7 +350,9 @@ class Hidding_Interval
   public:
     bool is_looped;
     bool is_offloaded;
+    bool offload_to_cpu = false;
     bool is_really_offloaded;
+    bool gar_for_step2_offloading = false;
     int kernelLevel_interval[2];
     int original_prefetch_index;
     int original_prefetch_finish_index;
