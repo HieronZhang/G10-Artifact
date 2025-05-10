@@ -4749,7 +4749,7 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index = -1;
                     int prefetch_mid_index = -1;
-                    // offload_mid_index = a->kernelLevel_interval[0];
+                    offload_mid_index = a->kernelLevel_interval[0];
                     // prefetch_mid_index = a->kernelLevel_interval[1];
 
                     bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
@@ -4758,16 +4758,16 @@ void scheduling_prefetch(){
 
                     if (cpu_ok)
                     {
-                        bool find_offload = false;
-                        for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2C[j])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
+                        bool find_offload = true;
+                        // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+                        // {
+                        //     if (kernel_no_ongoing_mirgation_list_G2C[j])
+                        //     {
+                        //         offload_mid_index = j;
+                        //         find_offload = true;
+                        //         break;
+                        //     }
+                        // }
                         bool find_prefetch = false;
                         for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
                         {
@@ -4787,16 +4787,16 @@ void scheduling_prefetch(){
                     }
 
                     if(!cpu_doable){
-                        bool find_offload = false;
-                        for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
+                        bool find_offload = true;
+                        // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+                        // {
+                        //     if (kernel_no_ongoing_mirgation_list_G2S[j])
+                        //     {
+                        //         offload_mid_index = j;
+                        //         find_offload = true;
+                        //         break;
+                        //     }
+                        // }
                         bool find_prefetch = false;
                         for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
                         {
@@ -4840,7 +4840,7 @@ void scheduling_prefetch(){
 
                     if (!overall_doable)
                     {
-                        area_can_reduce_a = area_can_reduce_a * 0.1;
+                        area_can_reduce_a = area_can_reduce_a * 0.5;
                     }
 
                 }
@@ -4848,7 +4848,7 @@ void scheduling_prefetch(){
                 {
                     int offload_mid_index = -1;
                     int prefetch_mid_index = -1;
-                    // offload_mid_index = a->kernelLevel_interval[0];
+                    offload_mid_index = a->kernelLevel_interval[0];
                     // prefetch_mid_index = a->kernelLevel_interval[1] + kernel_num;
 
 
@@ -4859,16 +4859,16 @@ void scheduling_prefetch(){
 
                     if (cpu_ok)
                     {
-                        bool find_offload = false;
-                        for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
+                        bool find_offload = true;
+                        // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+                        // {
+                        //     if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
+                        //     {
+                        //         offload_mid_index = j;
+                        //         find_offload = true;
+                        //         break;
+                        //     }
+                        // }
                         bool find_prefetch = false;
                         for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
                         {
@@ -4888,16 +4888,16 @@ void scheduling_prefetch(){
                     }
 
                     if(!cpu_doable){
-                        bool find_offload = false;
-                        for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
+                        bool find_offload = true;
+                        // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+                        // {
+                        //     if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
+                        //     {
+                        //         offload_mid_index = j;
+                        //         find_offload = true;
+                        //         break;
+                        //     }
+                        // }
                         bool find_prefetch = false;
                         for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
                         {
@@ -4941,7 +4941,7 @@ void scheduling_prefetch(){
 
                     if(!overall_doable)
                     {
-                        area_can_reduce_a = area_can_reduce_a * 0.1;
+                        area_can_reduce_a = area_can_reduce_a * 0.5;
                     }
 
                 }
@@ -5427,7 +5427,7 @@ void scheduling_prefetch(){
             // }
             bool offload_to_cpu = false;
             bool cpu_ok = check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
-            int offload_mid_index = -1;
+            int offload_mid_index = curr_interval->kernelLevel_interval[0];
             int prefetch_mid_index = -1;
 
             if (!curr_interval->is_looped)  //Not looped
@@ -5436,16 +5436,16 @@ void scheduling_prefetch(){
                 
                 if (cpu_ok)
                 {
-                    bool find_offload = false;
-                    for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                    {
-                        if (kernel_no_ongoing_mirgation_list_G2C[j])
-                        {
-                            offload_mid_index = j;
-                            find_offload = true;
-                            break;
-                        }
-                    }
+                    bool find_offload = true;
+                    // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                    // {
+                    //     if (kernel_no_ongoing_mirgation_list_G2C[j])
+                    //     {
+                    //         offload_mid_index = j;
+                    //         find_offload = true;
+                    //         break;
+                    //     }
+                    // }
                     bool find_prefetch = false;
                     for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
                     {
@@ -5473,16 +5473,16 @@ void scheduling_prefetch(){
                     prefetch_mid_index = needed_index;
                     if (!curr_interval->gar_for_step2_offloading)
                     {
-                        bool find_offload = false;
-                        for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
+                        bool find_offload = true;
+                        // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                        // {
+                        //     if (kernel_no_ongoing_mirgation_list_G2S[j])
+                        //     {
+                        //         offload_mid_index = j;
+                        //         find_offload = true;
+                        //         break;
+                        //     }
+                        // }
                         bool find_prefetch = false;
                         for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
                         {
