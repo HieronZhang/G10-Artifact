@@ -4149,7 +4149,7 @@ void scheduling_prefetch(){
                     for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
                     {
                         // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte )> target_mem_line*0.95)
+                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte )> target_mem_line*0.90)
                         {
                             abort = true;
                             break;
@@ -4158,7 +4158,7 @@ void scheduling_prefetch(){
                     for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1]; j++)
                     {
                         // GPU_resident_memory_estimation_pinned[j] += curr_interval->the_tensor->size_in_byte;
-                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
+                        if ((GPU_resident_memory_estimation_pinned[j] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.90)
                         {
                             abort = true;
                             break;
@@ -4298,7 +4298,7 @@ void scheduling_prefetch(){
                 for (int j = curr_interval->kernelLevel_interval[0]; j < pcie_eviction_clear_index; j++)
                 {
                     // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
-                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
+                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.90)
                     {
                         abort = true;
                         break;
@@ -4308,7 +4308,7 @@ void scheduling_prefetch(){
                 for (int j = pcie_prefetch_index; j < curr_interval->kernelLevel_interval[1] +kernel_num; j++)
                 {
                     // GPU_resident_memory_estimation_pinned[(j%kernel_num)] += curr_interval->the_tensor->size_in_byte;
-                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.95)
+                    if ((GPU_resident_memory_estimation_pinned[(j%kernel_num)] + curr_interval->the_tensor->size_in_byte) > target_mem_line*0.90)
                     {
                         abort = true;
                         break;
@@ -4750,86 +4750,86 @@ void scheduling_prefetch(){
                     int offload_mid_index = -1;
                     int prefetch_mid_index = -1;
                     offload_mid_index = a->kernelLevel_interval[0];
-                    // prefetch_mid_index = a->kernelLevel_interval[1];
+                    prefetch_mid_index = a->kernelLevel_interval[1];
 
-                    bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
-                    bool cpu_doable = false;
-                    bool overall_doable = false;
+                    // bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
+                    // bool cpu_doable = false;
+                    // bool overall_doable = false;
 
-                    if (cpu_ok)
-                    {
-                        bool find_offload = true;
-                        // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
-                        // {
-                        //     if (kernel_no_ongoing_mirgation_list_G2C[j])
-                        //     {
-                        //         offload_mid_index = j;
-                        //         find_offload = true;
-                        //         break;
-                        //     }
-                        // }
-                        bool find_prefetch = false;
-                        for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_C2G[j])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            cpu_doable = true;
-                            overall_doable = true;
-                        }
+                    // if (cpu_ok)
+                    // {
+                    //     bool find_offload = true;
+                    //     // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+                    //     // {
+                    //     //     if (kernel_no_ongoing_mirgation_list_G2C[j])
+                    //     //     {
+                    //     //         offload_mid_index = j;
+                    //     //         find_offload = true;
+                    //     //         break;
+                    //     //     }
+                    //     // }
+                    //     bool find_prefetch = false;
+                    //     for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
+                    //     {
+                    //         if (kernel_no_ongoing_mirgation_list_C2G[j])
+                    //         {
+                    //             prefetch_mid_index = j;
+                    //             find_prefetch = true;
+                    //             break;
+                    //         }
+                    //     }
+                    //     if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                    //     {
+                    //         cpu_doable = true;
+                    //         overall_doable = true;
+                    //     }
                         
-                    }
+                    // }
 
-                    if(!cpu_doable){
-                        bool find_offload = true;
-                        // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
-                        // {
-                        //     if (kernel_no_ongoing_mirgation_list_G2S[j])
-                        //     {
-                        //         offload_mid_index = j;
-                        //         find_offload = true;
-                        //         break;
-                        //     }
-                        // }
-                        bool find_prefetch = false;
-                        for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            overall_doable = true;
-                        }
-                    }
+                    // if(!cpu_doable){
+                    //     bool find_offload = true;
+                    //     // for (int j = a->kernelLevel_interval[0]; j < a->kernelLevel_interval[1]; j++)
+                    //     // {
+                    //     //     if (kernel_no_ongoing_mirgation_list_G2S[j])
+                    //     //     {
+                    //     //         offload_mid_index = j;
+                    //     //         find_offload = true;
+                    //     //         break;
+                    //     //     }
+                    //     // }
+                    //     bool find_prefetch = false;
+                    //     for (int j = a->kernelLevel_interval[1]; j > a->kernelLevel_interval[0]; j--)
+                    //     {
+                    //         if (kernel_no_ongoing_mirgation_list_S2G[j])
+                    //         {
+                    //             prefetch_mid_index = j;
+                    //             find_prefetch = true;
+                    //             break;
+                    //         }
+                    //     }
+                    //     if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                    //     {
+                    //         overall_doable = true;
+                    //     }
+                    // }
 
-                    if (!overall_doable)
-                    {
-                        offload_mid_index = a->kernelLevel_interval[0];
-                        prefetch_mid_index = a->kernelLevel_interval[1];
-                        a->gar_for_step2_offloading = true;
-                    }
+                    // if (!overall_doable)
+                    // {
+                    //     offload_mid_index = a->kernelLevel_interval[0];
+                    //     prefetch_mid_index = a->kernelLevel_interval[1];
+                    //     a->gar_for_step2_offloading = true;
+                    // }
                     
 
                     //Optimization: quick check
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index] > a->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > a->GPU_mem_line
+                    if (offload_mid_index+1 < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index+1] > a->GPU_mem_line && GPU_resident_memory_estimation[prefetch_mid_index-1] > a->GPU_mem_line
                     && GPU_resident_memory_estimation[offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line && GPU_resident_memory_estimation[offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3] > a->GPU_mem_line)
                     {
-                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index]);
+                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table[prefetch_mid_index] - kernel_time_table[offload_mid_index+1]);
                     }
                     else
                     {
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+                        for (int j = offload_mid_index+1; j < prefetch_mid_index; j++)
                         {
                             if (GPU_resident_memory_estimation[j] > a->GPU_mem_line)
                             {
@@ -4838,10 +4838,10 @@ void scheduling_prefetch(){
                         }
                     }
 
-                    if (!overall_doable)
-                    {
-                        area_can_reduce_a = area_can_reduce_a * 0.5;
-                    }
+                    // if (!overall_doable)
+                    // {
+                    //     area_can_reduce_a = area_can_reduce_a * 0.5;
+                    // }
 
                 }
                 else
@@ -4849,88 +4849,88 @@ void scheduling_prefetch(){
                     int offload_mid_index = -1;
                     int prefetch_mid_index = -1;
                     offload_mid_index = a->kernelLevel_interval[0];
-                    // prefetch_mid_index = a->kernelLevel_interval[1] + kernel_num;
+                    prefetch_mid_index = a->kernelLevel_interval[1] + kernel_num;
 
 
-                    bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
-                    bool cpu_doable = false;
-                    bool overall_doable = false;
-                    int needed_index = a->kernelLevel_interval[1] + kernel_num;
+                    // bool cpu_ok = check_CPU_OK_interval(CPU_line - a->the_tensor->size_in_byte, a->kernelLevel_interval[0], a->kernelLevel_interval[1]);
+                    // bool cpu_doable = false;
+                    // bool overall_doable = false;
+                    // int needed_index = a->kernelLevel_interval[1] + kernel_num;
 
-                    if (cpu_ok)
-                    {
-                        bool find_offload = true;
-                        // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
-                        // {
-                        //     if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
-                        //     {
-                        //         offload_mid_index = j;
-                        //         find_offload = true;
-                        //         break;
-                        //     }
-                        // }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            cpu_doable = true;
-                            overall_doable = true;
-                        }
+                    // if (cpu_ok)
+                    // {
+                    //     bool find_offload = true;
+                    //     // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+                    //     // {
+                    //     //     if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
+                    //     //     {
+                    //     //         offload_mid_index = j;
+                    //     //         find_offload = true;
+                    //     //         break;
+                    //     //     }
+                    //     // }
+                    //     bool find_prefetch = false;
+                    //     for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
+                    //     {
+                    //         if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
+                    //         {
+                    //             prefetch_mid_index = j;
+                    //             find_prefetch = true;
+                    //             break;
+                    //         }
+                    //     }
+                    //     if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                    //     {
+                    //         cpu_doable = true;
+                    //         overall_doable = true;
+                    //     }
                         
-                    }
+                    // }
 
-                    if(!cpu_doable){
-                        bool find_offload = true;
-                        // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
-                        // {
-                        //     if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
-                        //     {
-                        //         offload_mid_index = j;
-                        //         find_offload = true;
-                        //         break;
-                        //     }
-                        // }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                        if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                        {
-                            overall_doable = true;
-                        }
-                    }
+                    // if(!cpu_doable){
+                    //     bool find_offload = true;
+                    //     // for (int j = a->kernelLevel_interval[0]; j < needed_index; j++)
+                    //     // {
+                    //     //     if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
+                    //     //     {
+                    //     //         offload_mid_index = j;
+                    //     //         find_offload = true;
+                    //     //         break;
+                    //     //     }
+                    //     // }
+                    //     bool find_prefetch = false;
+                    //     for (int j = needed_index; j > a->kernelLevel_interval[0]; j--)
+                    //     {
+                    //         if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
+                    //         {
+                    //             prefetch_mid_index = j;
+                    //             find_prefetch = true;
+                    //             break;
+                    //         }
+                    //     }
+                    //     if (find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                    //     {
+                    //         overall_doable = true;
+                    //     }
+                    // }
 
-                    if (!overall_doable)
-                    {
-                        offload_mid_index = a->kernelLevel_interval[0];
-                        prefetch_mid_index = needed_index;
-                        a->gar_for_step2_offloading = true;
-                    }
+                    // if (!overall_doable)
+                    // {
+                    //     offload_mid_index = a->kernelLevel_interval[0];
+                    //     prefetch_mid_index = needed_index;
+                    //     a->gar_for_step2_offloading = true;
+                    // }
 
 
                     //Optimization: quick check
-                    if (offload_mid_index < prefetch_mid_index && GPU_resident_memory_estimation[offload_mid_index % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
+                    if (offload_mid_index+1 < prefetch_mid_index && GPU_resident_memory_estimation[(offload_mid_index+1) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(prefetch_mid_index-1) % kernel_num] > a->GPU_mem_line
                         && GPU_resident_memory_estimation[(offload_mid_index + (prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line && GPU_resident_memory_estimation[(offload_mid_index + 2*(prefetch_mid_index-1-offload_mid_index)/3) % kernel_num] > a->GPU_mem_line)
                     {
-                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index]);
+                        area_can_reduce_a = a->the_tensor->size_in_byte * (kernel_time_table_extended_sort[prefetch_mid_index] - kernel_time_table_extended_sort[offload_mid_index+1]);
                     }
                     else
                     {
-                        for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+                        for (int j = offload_mid_index+1; j < prefetch_mid_index; j++)
                         {
                             if (GPU_resident_memory_estimation[j % kernel_num] > a->GPU_mem_line)
                             {
@@ -4939,10 +4939,10 @@ void scheduling_prefetch(){
                         }
                     }
 
-                    if(!overall_doable)
-                    {
-                        area_can_reduce_a = area_can_reduce_a * 0.5;
-                    }
+                    // if(!overall_doable)
+                    // {
+                    //     area_can_reduce_a = area_can_reduce_a * 0.5;
+                    // }
 
                 }
             }
@@ -5411,22 +5411,24 @@ void scheduling_prefetch(){
             }
             
 
-            // int cha;
-            // if (!curr_interval->is_looped)
-            // {
-            //     cha = curr_interval->kernelLevel_interval[1] - curr_interval->kernelLevel_interval[0];
-            // }
-            // else
-            // {
-            //     cha = curr_interval->kernelLevel_interval[1] + kernel_num - curr_interval->kernelLevel_interval[0];
-            // }
+            int cha;
+            if (!curr_interval->is_looped)
+            {
+                cha = curr_interval->kernelLevel_interval[1] - curr_interval->kernelLevel_interval[0];
+            }
+            else
+            {
+                cha = curr_interval->kernelLevel_interval[1] + kernel_num - curr_interval->kernelLevel_interval[0];
+            }
 
-            // if (cha==1)
-            // {
-            //     continue;
-            // }
-            bool offload_to_cpu = false;
-            bool cpu_ok = check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
+            if (cha==1)
+            {
+                continue;
+            }
+
+
+            // bool offload_to_cpu = false;
+            bool offload_to_cpu = check_CPU_OK_interval(CPU_line - curr_interval->the_tensor->size_in_byte, curr_interval->kernelLevel_interval[0], curr_interval->kernelLevel_interval[1]);
             int offload_mid_index = curr_interval->kernelLevel_interval[0];
             int prefetch_mid_index = -1;
 
@@ -5434,67 +5436,68 @@ void scheduling_prefetch(){
             {
                 int needed_index = curr_interval->kernelLevel_interval[1];
                 
-                if (cpu_ok)
-                {
-                    bool find_offload = true;
-                    // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                    // {
-                    //     if (kernel_no_ongoing_mirgation_list_G2C[j])
-                    //     {
-                    //         offload_mid_index = j;
-                    //         find_offload = true;
-                    //         break;
-                    //     }
-                    // }
-                    bool find_prefetch = false;
-                    for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
-                    {
-                        if (kernel_no_ongoing_mirgation_list_C2G[j])
-                        {
-                            prefetch_mid_index = j;
-                            find_prefetch = true;
-                            break;
-                        }
-                    }
-                    if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                    {
-                        offload_to_cpu = true;
-                    }
-                    else
-                    {
-                        offload_to_cpu = true;
-                        offload_mid_index = curr_interval->kernelLevel_interval[0];
-                        prefetch_mid_index = needed_index;
-                    }
+                // if (cpu_ok)
+                // {
+                //     bool find_offload = true;
+                //     // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                //     // {
+                //     //     if (kernel_no_ongoing_mirgation_list_G2C[j])
+                //     //     {
+                //     //         offload_mid_index = j;
+                //     //         find_offload = true;
+                //     //         break;
+                //     //     }
+                //     // }
+                //     bool find_prefetch = false;
+                //     for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
+                //     {
+                //         if (kernel_no_ongoing_mirgation_list_C2G[j])
+                //         {
+                //             prefetch_mid_index = j;
+                //             find_prefetch = true;
+                //             break;
+                //         }
+                //     }
+                //     if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                //     {
+                //         offload_to_cpu = true;
+                //     }
+                //     else
+                //     {
+                //         offload_to_cpu = true;
+                //         offload_mid_index = curr_interval->kernelLevel_interval[0];
+                //         prefetch_mid_index = needed_index;
+                //     }
                     
-                }
-                else{
-                    offload_mid_index = curr_interval->kernelLevel_interval[0];
-                    prefetch_mid_index = needed_index;
-                    if (!curr_interval->gar_for_step2_offloading)
-                    {
-                        bool find_offload = true;
-                        // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                        // {
-                        //     if (kernel_no_ongoing_mirgation_list_G2S[j])
-                        //     {
-                        //         offload_mid_index = j;
-                        //         find_offload = true;
-                        //         break;
-                        //     }
-                        // }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                    }
-                }
+                // }
+                // else{
+                //     offload_mid_index = curr_interval->kernelLevel_interval[0];
+                //     prefetch_mid_index = needed_index;
+                //     if (!curr_interval->gar_for_step2_offloading)
+                //     {
+                //         bool find_offload = true;
+                //         // for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                //         // {
+                //         //     if (kernel_no_ongoing_mirgation_list_G2S[j])
+                //         //     {
+                //         //         offload_mid_index = j;
+                //         //         find_offload = true;
+                //         //         break;
+                //         //     }
+                //         // }
+                //         bool find_prefetch = false;
+                //         for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
+                //         {
+                //             if (kernel_no_ongoing_mirgation_list_S2G[j])
+                //             {
+                //                 prefetch_mid_index = j;
+                //                 find_prefetch = true;
+                //                 break;
+                //             }
+                //         }
+                //     }
+                // }
+                prefetch_mid_index = needed_index;
 
                 Assert(offload_mid_index != -1);
                 Assert(prefetch_mid_index != -1);
@@ -5518,7 +5521,7 @@ void scheduling_prefetch(){
 
 
                 //minus mem
-                for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+                for (int j = offload_mid_index+1; j < prefetch_mid_index; j++)
                 {
                     GPU_resident_memory_estimation[j] -= curr_interval->the_tensor->size_in_byte;
                 }
@@ -5527,67 +5530,68 @@ void scheduling_prefetch(){
             {
                 int needed_index = curr_interval->kernelLevel_interval[1] + kernel_num;
                 
-                if (cpu_ok)
-                {
-                    bool find_offload = false;
-                    for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                    {
-                        if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
-                        {
-                            offload_mid_index = j;
-                            find_offload = true;
-                            break;
-                        }
-                    }
-                    bool find_prefetch = false;
-                    for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
-                    {
-                        if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
-                        {
-                            prefetch_mid_index = j;
-                            find_prefetch = true;
-                            break;
-                        }
-                    }
-                    if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
-                    {
-                        offload_to_cpu = true;
-                    }
-                    else
-                    {
-                        offload_to_cpu = true;
-                        offload_mid_index = curr_interval->kernelLevel_interval[0];
-                        prefetch_mid_index = needed_index;
-                    }
+                // if (cpu_ok)
+                // {
+                //     bool find_offload = false;
+                //     for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                //     {
+                //         if (kernel_no_ongoing_mirgation_list_G2C[j%kernel_num])
+                //         {
+                //             offload_mid_index = j;
+                //             find_offload = true;
+                //             break;
+                //         }
+                //     }
+                //     bool find_prefetch = false;
+                //     for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
+                //     {
+                //         if (kernel_no_ongoing_mirgation_list_C2G[j%kernel_num])
+                //         {
+                //             prefetch_mid_index = j;
+                //             find_prefetch = true;
+                //             break;
+                //         }
+                //     }
+                //     if(find_offload && find_prefetch && offload_mid_index < prefetch_mid_index)
+                //     {
+                //         offload_to_cpu = true;
+                //     }
+                //     else
+                //     {
+                //         offload_to_cpu = true;
+                //         offload_mid_index = curr_interval->kernelLevel_interval[0];
+                //         prefetch_mid_index = needed_index;
+                //     }
                     
-                }
-                else{
-                    offload_mid_index = curr_interval->kernelLevel_interval[0];
-                    prefetch_mid_index = needed_index;
-                    if (!curr_interval->gar_for_step2_offloading)
-                    {
-                        bool find_offload = false;
-                        for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
-                            {
-                                offload_mid_index = j;
-                                find_offload = true;
-                                break;
-                            }
-                        }
-                        bool find_prefetch = false;
-                        for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
-                        {
-                            if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
-                            {
-                                prefetch_mid_index = j;
-                                find_prefetch = true;
-                                break;
-                            }
-                        }
-                    }
-                }
+                // }
+                // else{
+                //     offload_mid_index = curr_interval->kernelLevel_interval[0];
+                //     prefetch_mid_index = needed_index;
+                //     if (!curr_interval->gar_for_step2_offloading)
+                //     {
+                //         bool find_offload = false;
+                //         for (int j = curr_interval->kernelLevel_interval[0]; j < needed_index; j++)
+                //         {
+                //             if (kernel_no_ongoing_mirgation_list_G2S[j%kernel_num])
+                //             {
+                //                 offload_mid_index = j;
+                //                 find_offload = true;
+                //                 break;
+                //             }
+                //         }
+                //         bool find_prefetch = false;
+                //         for (int j = needed_index; j > curr_interval->kernelLevel_interval[0]; j--)
+                //         {
+                //             if (kernel_no_ongoing_mirgation_list_S2G[j%kernel_num])
+                //             {
+                //                 prefetch_mid_index = j;
+                //                 find_prefetch = true;
+                //                 break;
+                //             }
+                //         }
+                //     }
+                // }
+                prefetch_mid_index = needed_index;
 
                 Assert(offload_mid_index != -1);
                 Assert(prefetch_mid_index != -1);
@@ -5611,7 +5615,7 @@ void scheduling_prefetch(){
                 //@Pre-fetch tensor "<<curr_interval->the_tensor->tensor_id<<" at kernel ID "<<(curr_interval->kernelLevel_interval[1] + kernel_num -1)%kernel_num<<std::endl;
 
                 //minus mem
-                for (int j = offload_mid_index; j < prefetch_mid_index; j++)
+                for (int j = offload_mid_index+1; j < prefetch_mid_index; j++)
                 {
                     GPU_resident_memory_estimation[j % kernel_num] -= curr_interval->the_tensor->size_in_byte;
                 }
