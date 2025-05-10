@@ -146,7 +146,7 @@ def plot_multi_timeline(multi_results, filename, xlabel="Hours", ylabel="Migrate
 from fig_common import *
 
 title = "dnn_mem_consumption"
-Figure = plt.figure(figsize=(23, 7))
+Figure = plt.figure(figsize=(22, 6))
 PDF = PdfPages("output/" + title + ".pdf")
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
@@ -154,7 +154,7 @@ exec(open('../../../results/llama-70B-BS8-L4096/rank0_NNMemConsumptionLog.py').r
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(221)
+ax = Figure.add_subplot(141)
 plot_timeline(ax, motiv1, "mem_consumption_bert", "GPU Kernel Index\n(a) Llama3-70B-GPU0 (Stage-0)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
@@ -162,14 +162,14 @@ plot_timeline(ax, motiv1, "mem_consumption_bert", "GPU Kernel Index\n(a) Llama3-
 # ax.xaxis.labelpad=30
 
 
-exec(open('../../../results/gpt2-40B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
-# exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
-# exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/gpt2-40B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/granite-8B-BS16-L1024/rank1_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(222)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) GPT2-40B-GPU0 (Stage-0)", " ", markevery=1, legend=True)
+ax = Figure.add_subplot(142)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) Llama3-70B-GPU1 (Stage-1)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -177,13 +177,13 @@ plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) GPT2-
 
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank2_NNMemConsumptionLog.py').read())
-exec(open('../../../results/BertL-BS128-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
-# exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/BertL-BS128-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(223)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) Bert-Large-GPU0 (Stage-0)", " ", markevery=1)
+ax = Figure.add_subplot(143)
+plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) Llama3-70B-GPU2 (Stage-2)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -191,23 +191,25 @@ plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) Bert-
 
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank3_NNMemConsumptionLog.py').read())
-# exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
-exec(open('../../../results/T5-11B-BS32-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
+exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
+# exec(open('../../../results/T5-11B-BS32-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
-ax = Figure.add_subplot(224)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) T5-11B-GPU0 (Stage-0)", " ", markevery=1)
+ax = Figure.add_subplot(144)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) Llama3-70B-GPU3 (Stage-3)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
 # ax.xaxis.labelpad=30
 
+# Figure.tight_layout(pad=1.)  # Keep this to fix label overlap
+Figure.subplots_adjust(wspace=-0.4)  # Reduce horizontal space between subplots
 
 
-Figure.text(-1.28, 1.2, "Memory Consumption", rotation=90, \
-    horizontalalignment='center', verticalalignment='center', \
-    transform=ax.transAxes, fontdict={'size': 22})
+Figure.text(0.01, 0.43, "Memory Consumption", rotation=90,
+    horizontalalignment='center', verticalalignment='center',
+    transform=Figure.transFigure, fontdict={'size': 22})
 
 Figure.tight_layout(pad=1.)
 

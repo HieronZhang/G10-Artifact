@@ -9,7 +9,7 @@ from matplotlib.colors import LogNorm
 import matplotlib.cm as cm
 
 
-Figure = plt.figure( figsize=(10.5, 8) )
+Figure = plt.figure( figsize=(20, 4.6) )
 PDF = PdfPages( "output/tensor_periods_distribution.pdf" )
 
 
@@ -101,14 +101,14 @@ def plot_cost_model_with_frequency(
 
     # Compute y values using size = bandwidth * time
     y_vals_3GB = 3e3 * x_vals  # 3GB/s
-    y_vals_12GB = 12e3 * x_vals  # 12GB/s
+    y_vals_16GB = 16e3 * x_vals  # 12GB/s
 
     # Plot the lines
     # ax.plot(x_vals, y_vals_3GB, color='red', linestyle='--', linewidth=2, label="3 GB/s")
-    ax.plot(x_vals, y_vals_12GB, color='orange', linestyle='--', linewidth=2, label="12 GB/s")
+    ax.plot(x_vals, y_vals_16GB, color='orange', linestyle='--', linewidth=2, label="16 GB/s")
 
     # Add legend
-    ax.legend(loc="upper left", fontsize=12, frameon=True)
+    ax.legend(loc="upper left", fontsize=13, frameon=True)
 
 
     # Configure axes
@@ -135,56 +135,56 @@ def plot_cost_model_with_frequency(
     
 exec(open('../../../results/llama-70B-BS8-L4096/rank0_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank0_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(221)
+ax = Figure.add_subplot(141)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
 plot_cost_model_with_frequency(
     np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e11)
+    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e10)
 )
-ax.text(0.45, -0.34, "(a) llama-70B-GPU0(Stage-0)", \
+ax.text(0.45, -0.34, "(a) Llama3-70B-GPU0 (Stage-0)", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
 ax.set_xlim(1, 4e8)
 
-exec(open('../../../results/granite-8B-BS16-L1024/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/gpt2-40B-BS16-L1024/rank0_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank1_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(222)
+ax = Figure.add_subplot(142)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
 plot_cost_model_with_frequency(
     np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e11)
+    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e10)
 )
-ax.text(0.45, -0.34, "(b) Granite-8B-GPU0(Stage-0)", \
+ax.text(0.45, -0.34, "(b) GPT2-40B-GPU0 (Stage-0)", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
 ax.set_xlim(1, 4e8)
 
 exec(open('../../../results/BertL-BS128-L512/rank0_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank2_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(223)
+ax = Figure.add_subplot(143)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
 plot_cost_model_with_frequency(
     np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e11)
+    color_map=cm.Purples, bins=(20,20), y_lim=(None, 2e10)
 )
-ax.text(0.45, -0.34, "(c) Bert-Large-GPU0(Stage-0)", \
+ax.text(0.45, -0.34, "(c) Bert-Large-GPU0 (Stage-0)", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
-ax.set_xlim(1, 4e8)
+ax.set_xlim(1, 4e7)
 
-exec(open('../../../results/gpt4-40B-BS16-L1024/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/T5-11B-BS32-L512/rank0_pcie4_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank3_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(224)
+ax = Figure.add_subplot(144)
 
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
 plot_cost_model_with_frequency(
     np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e11)
+    color_map=cm.Purples, bins=(20,20), y_lim=(None, 2e10)
 )
-ax.text(0.45, -0.34, "(d) GPT2-40B-GPU0(Stage-0)", \
+ax.text(0.45, -0.34, "(d) T5-11B-GPU0 (Stage-0)", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
-ax.set_xlim(1, 4e8)
+ax.set_xlim(1, 4e7)
 
 Figure.tight_layout(pad=0.8)
 

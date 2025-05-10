@@ -34,23 +34,23 @@ mpl.rcParams.update({'font.family': 'serif'})
 # plt.subplots_adjust(top=0.3, bottom=0.01, hspace=0.53, wspace=0.25)
 # axs = (ax0, ax1, ax2, ax3, ax4)
 
-fig, (((ax0))) = plt.subplots(1, 1, figsize=(9.5, 11))
-plt.subplots_adjust(top=0.3, bottom=0.01, hspace=0.53, wspace=0.25)
-axs = (ax0)
+
+fig, ax = plt.subplots(figsize=(7, 5))
+# Set up and style the grid lines for clarity
+ax.grid(True, which='both', linestyle='--', linewidth=0.75, color='gray', alpha=0.7)
+
 
 policy_translation = {
   "llama-8b" : "Llama3-8B",
   "llama-70b" : "Llama3-70B",
   "t5" : "T5-11B",
-  "gpt2-40b" : "GPT2-40B",
-  "bertl" : "BertL"
+  "gpt2-40b" : "GPT2-40B"
 }
 
 models = [VIT]
 stat_prefix = "sensitivity_cpumem_combined"
 for policy_idx, policy in enumerate(list(policy_translation.keys())):
   for model_idx in range(len(models)):
-    ax = axs
     model = models[model_idx]
     if model == INCEPTION:
       data_file = f"{stat_prefix}/{policy}/inception.txt"
@@ -66,7 +66,7 @@ for policy_idx, policy in enumerate(list(policy_translation.keys())):
       data_file = f"{stat_prefix}/{policy}/resnext.txt"
 
     bar_width = 0.105
-    horiz_margin = 0.6
+    horiz_margin = 0.9
     horiz_major_tick = 0.7
     try:
       with open(data_file, "r") as f:
@@ -118,10 +118,10 @@ for policy_idx, policy in enumerate(list(policy_translation.keys())):
       ax.set_xticks([0, 32, 64, 96, 128, 256])
     else:
       ax.set_xticks([0, 4, 8, 12, 16, 24, 32, 48, 64])
-    ax.set_xlabel(f"Available Migration Bandwidth (GB/s)", fontsize=18)
+    ax.set_xlabel(f"Available Migration Bandwidth (GB/s)", fontsize=19)
     # plt.text(0.5, -0.28, f"({chr(ord('a') + model_idx)}) {list(net_display_name_translation.values())[model]}", ha="center", transform=ax.transAxes)
     # ax.legend(loc="upper right")
-    ax.legend(loc="upper center", bbox_to_anchor=(0.815, 0.795))
+    ax.legend(loc="upper center", bbox_to_anchor=(0.735, 0.795))
     ax.grid()
     ymin, ymax = ax.get_ylim()
     ytick = 10
@@ -129,7 +129,7 @@ for policy_idx, policy in enumerate(list(policy_translation.keys())):
       ymin, ymax, ytick = 0, 70, 10
       ymin, ymax, ytick = 0, 30, 5
     elif model == VIT:
-      ymin, ymax, ytick = 0, 1, 0.2
+      ymin, ymax, ytick = 0, 1.08, 0.2
     elif model == INCEPTION:
       ymin, ymax, ytick = 45, 120, 15
       ymin, ymax, ytick = 45, 170, 25
@@ -138,11 +138,11 @@ for policy_idx, policy in enumerate(list(policy_translation.keys())):
     elif model == SENET:
       ymin, ymax, ytick = 90, 340, 50
     yticks = [0, 0.2, 0.4, 0.6, 0.8, 1]
-    ax.set_ylim(ymin, yticks[-1])
+    ax.set_ylim(ymin, ymax)
     ax.set_yticks(yticks)
   
   # ax.set_ylim([0, (data_array[:, j]).max() * 1.2])
-ax0.set_ylabel("Normalized Throughput", fontsize=18)
+ax.set_ylabel("Normalized Throughput", fontsize=19)
 
 # handles, labels = ax.get_legend_handles_labels()
 # print(labels)
@@ -162,5 +162,5 @@ extent.x0 -= x_len * 0.025
 extent.x1 -= x_len * 0.035 
 # figname = list(net_name_translation.values())[model]
 # fig.savefig(f"OverallPerf{figname}.png", bbox_inches=extent)
-fig.savefig(f"output/OverallPerfCPUMemCombined.png", bbox_inches=extent)
-fig.savefig(f"output/OverallPerfCPUMemCombined.pdf", bbox_inches=extent)
+fig.savefig(f"output/tensor_roofline.png", bbox_inches='tight')
+fig.savefig(f"output/tensor_roofline.pdf", bbox_inches='tight')
