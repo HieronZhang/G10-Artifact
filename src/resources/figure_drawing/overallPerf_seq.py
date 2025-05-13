@@ -124,9 +124,9 @@ fig, axes = plt.subplots(1, 3, figsize=(27, 4))
 plt.subplots_adjust(top=0.85, bottom=0.15, wspace=0.12)
 
 data_files = [
-    "overall_performance/llama8b.txt",
-    "overall_performance/granite8b.txt",
-    "overall_performance/llama70b.txt",
+    "overall_pref_seq/llama8b.txt",
+    "overall_pref_seq/granite8b.txt",
+    "overall_pref_seq/llama70b.txt",
 ]
 
 titles = [
@@ -156,8 +156,8 @@ fig.text(0.075, 0.5, "Training Throughput\n        (token/s)", va='center', rota
 handles, labels = axes[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc="upper center", ncol=5, frameon=False, fontsize=14)
 
-fig.savefig("output/OverallPerfAllModels.png", bbox_inches='tight')
-fig.savefig("output/OverallPerfAllModels.pdf", bbox_inches='tight')
+fig.savefig("output/OverallPerfAllModels_seq.png", bbox_inches='tight')
+fig.savefig("output/OverallPerfAllModels_seq.pdf", bbox_inches='tight')
 
 
 

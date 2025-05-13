@@ -36,8 +36,6 @@ colors = ['#ff796c', 'plum', '#95d0fc', 'gray']
 line_colors = ['#598570', '#23a8eb', 'gray', 'black']
 markers = ['.', '.', '*', 'v', '^']
     
-
-    
 def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migrate Overhead (hrs)", cumulative=False, step=False, aggregate=False, scaling=1.0, markevery=1, legend=False):
     if TEXT_ONLY:
         return
@@ -60,17 +58,34 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
         agg_seriess = np.array(agg_seriess) * scaling
         max_y_value = max(max_y_value, max(agg_seriess))
         
-    print("max_y_value", max_y_value)
+   
 
     import pandas as pd
 
-    results["active"] = pd.Series(results["active"]).rolling(150).max().dropna().tolist()
+    results["active"] = pd.Series(results["active"]).rolling(139).max().dropna().tolist()
     results["all"] = pd.Series(results["all"]).rolling(6).max().dropna().tolist()
+    
+    gpu_line = 80*1024*1024*1024
+    max_y_value = max_y_value / gpu_line
+    avg_y_value = 0
 
     for i, (plot_policy, series) in enumerate(results.items()):
         if cumulative:
             series = np.cumsum(series)
-        series = np.array(series) * scaling / max_y_value
+        series = np.array(series) * scaling / gpu_line
+        print("series", series)
+        curr_max = - float('inf')
+        for j in range(len(series)):
+            if series[j] < 0.0002:
+                series[j] = 0.0002
+            if series[j] > curr_max:
+                curr_max = series[j]
+        avg_y_value = np.mean(series)
+                
+        print("max_y_value", curr_max)
+        print("avg_y_value", avg_y_value)
+        
+        
 
         plot_func(np.arange(len(series)), series, label=plot_policy, color=line_colors[i % len(colors)], linestyle=line_styles[i % len(line_styles)], linewidth=3.5, markevery=markevery)
     if aggregate:
@@ -88,7 +103,7 @@ def plot_timeline(ax: plt.Axes, results, filename, xlabel="Hours", ylabel="Migra
 
     # plt.xlim([0, TIMESTEPS])
     if max_y_value != 0 and max_y_value != - float('inf'):
-        ax.set_ylim(ax.get_ylim()[0], 1.4*max_y_value / max_y_value )
+        ax.set_ylim(ax.get_ylim()[0], 1.4*max_y_value )
         #plt.locator_params(axis='y', nbins=5)
         # num_yticks = 5
         # # nearest_unit = 10**math.floor(math.log10(max_y_value // num_yticks))
@@ -141,21 +156,19 @@ def plot_multi_timeline(multi_results, filename, xlabel="Hours", ylabel="Migrate
     plt.savefig(f"{filename}")
     plt.clf()
 
-
-
 from fig_common import *
 
-title = "dnn_mem_consumption"
-Figure = plt.figure(figsize=(22, 6))
+title = "dnn_mem_consumption_stages"
+Figure = plt.figure(figsize=(22, 4))
 PDF = PdfPages("output/" + title + ".pdf")
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
-exec(open('../../../results/llama-70B-BS8-L4096/rank0_NNMemConsumptionLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/rank0_pcie4_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
 ax = Figure.add_subplot(141)
-plot_timeline(ax, motiv1, "mem_consumption_bert", "GPU Kernel Index\n(a) Llama3-70B-GPU0 (Stage-0)", " ", markevery=1, legend=True)
+plot_timeline(ax, motiv1, "mem_consumption_bert", "GPU Kernel Index\n(a) GPT2-40B-GPU0 (Stage-0)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -164,12 +177,12 @@ plot_timeline(ax, motiv1, "mem_consumption_bert", "GPU Kernel Index\n(a) Llama3-
 
 # exec(open('../../../results/gpt2-40B-BS16-L1024/rank0_NNMemConsumptionLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank1_NNMemConsumptionLog.py').read())
-exec(open('../../../results/llama-70B-BS8-L4096/rank1_NNMemConsumptionLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/_pcie8_rank1_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
 ax = Figure.add_subplot(142)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) Llama3-70B-GPU1 (Stage-1)", " ", markevery=1, legend=True)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) GPT2-40B-GPU1 (Stage-1)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -178,12 +191,12 @@ plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) Llama
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank2_NNMemConsumptionLog.py').read())
 # exec(open('../../../results/BertL-BS128-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
-exec(open('../../../results/llama-70B-BS8-L4096/rank2_NNMemConsumptionLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/_pcie12_rank2_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
 ax = Figure.add_subplot(143)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) Llama3-70B-GPU2 (Stage-2)", " ", markevery=1, legend=True)
+plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) GPT2-40B-GPU2 (Stage-2)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)
@@ -191,13 +204,13 @@ plot_timeline(ax, motiv1, "mem_consumption_resnet", "GPU Kernel Index\n(c) Llama
 
 
 # exec(open('../../../results/granite-8B-BS16-L1024/rank3_NNMemConsumptionLog.py').read())
-exec(open('../../../results/llama-70B-BS8-L4096/rank3_NNMemConsumptionLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/_pcie16_rank3_NNMemConsumptionLog.py').read())
 # exec(open('../../../results/T5-11B-BS32-L512/rank0_pcie4_NNMemConsumptionLog.py').read())
 live = active
 real = total
 motiv1 = {"all" : real, "active" : live}
 ax = Figure.add_subplot(144)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) Llama3-70B-GPU3 (Stage-3)", " ", markevery=1, legend=True)
+plot_timeline(ax, motiv1, "mem_consumption_incept", "GPU Kernel Index\n(d) GPT2-40B-GPU3 (Stage-3)", " ", markevery=1, legend=True)
 # ax.text(0.5, -0.35, "GPU Kernel Index", \
 #     horizontalalignment='center', verticalalignment='center', \
 #     transform=ax.transAxes)

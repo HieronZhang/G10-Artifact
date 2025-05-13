@@ -7,9 +7,9 @@ from fig_common import *
 from matplotlib.colors import Normalize
 from matplotlib.colors import LogNorm
 import matplotlib.cm as cm
+from figureUtils import *
 
-
-Figure = plt.figure( figsize=(20, 4.6) )
+Figure = plt.figure( figsize=(18, 4.5) )
 PDF = PdfPages( "output/tensor_periods_distribution.pdf" )
 
 
@@ -52,141 +52,121 @@ def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: b
     
     ax.set_xlim(ax.get_xlim())
     
-    
-
-
-def plot_cost_model_with_frequency(
-    times, sizes, ax: plt.Axes, color_map=cm.Purples, 
-    ylabel: bool = True, log_x: bool = True, log_y: bool = True, 
-    y_lim: Tuple[float, float] = None, bins: Union[int, Tuple[int, int]] = (100, 100)
+def plot_cdf_by_size_ranges(
+    times, sizes, ax: plt.Axes, 
+    ylabel: bool = True, log_x: bool = True,
+    size_bins=None, labels=None, colors=None, linestyles=None
 ):
-    """
-    Scatter plot with frequency-based color intensity (heatmap-like).
-    Ensures all points fall within the histogram range.
-    """
-    # Calculate custom bin edges to fully cover the data range
-    x_min, x_max = np.min(times), np.max(times)
-    y_min, y_max = np.min(sizes), np.max(sizes)
-    
-    # Create bin edges with a small buffer to avoid edge cases
-    xedges = np.linspace(x_min, x_max, bins[0] + 1)
-    yedges = np.linspace(y_min, y_max, bins[1] + 1)
+    if size_bins is None:
+        size_bins = [
+            (0, 1 << 20),
+            (1 << 20, 10 << 20),
+            (10 << 20, 100 << 20),
+            (100 << 20, 1 << 30),
+            (1 << 30, float("inf"))
+        ]
+    if labels is None:
+        labels = ["<1MB", "1–10MB", "10–100MB", "100MB–1GB", ">1GB"]
+    if colors is None:
+        colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+    if linestyles is None:
+        linestyles = ["-", "--", "-.", ":", (0, (3, 1, 1, 1))]  # custom dash style for the last one
 
-    # Create a 2D histogram
-    freq, xedges, yedges = np.histogram2d(times, sizes, bins=(xedges, yedges))
+    total_count = len(times)
 
-    # Transpose the frequency matrix to align with x-y indexing
-    freq = freq.T  
+    for (lower, upper), label, color, ls in zip(size_bins, labels, colors, linestyles):
+        mask = (sizes >= lower) & (sizes < upper)
+        filtered_times = times[mask]
+        count = len(filtered_times)
 
-    # Normalize frequencies using a logarithmic scale
-    norm = LogNorm(vmin=1, vmax=freq.max())  # Log scale normalization
-    color_mapper = cm.ScalarMappable(norm=norm, cmap=color_map)
+        if count == 0:
+            continue
 
-    # Find bin indices for each point
-    x_idx = np.clip(np.digitize(times, xedges) - 1, 0, len(xedges) - 2)
-    y_idx = np.clip(np.digitize(sizes, yedges) - 1, 0, len(yedges) - 2)
+        sorted_times = np.sort(filtered_times)
+        cdf = np.linspace(0, 100, count, endpoint=True)
 
+        pct = 100.0 * count / total_count
+        label_with_pct = f"{label} ({pct:.1f}%)"
 
-    # Assign colors to each point
-    colors = [
-        color_mapper.to_rgba(freq[x_idx[i], y_idx[i]])
-        for i in range(len(times))
-    ]
-
-    # Scatter plot with assigned colors
-    ax.scatter(times, sizes, color=colors, marker="o", s=10, zorder=3)
-    
-    # Define the x values for the lines (same range as x-axis)
-    x_vals = np.array([1, 4e8])  # From 1 µs to 400M µs
-
-    # Compute y values using size = bandwidth * time
-    y_vals_3GB = 3e3 * x_vals  # 3GB/s
-    y_vals_16GB = 16e3 * x_vals  # 12GB/s
-
-    # Plot the lines
-    # ax.plot(x_vals, y_vals_3GB, color='red', linestyle='--', linewidth=2, label="3 GB/s")
-    ax.plot(x_vals, y_vals_16GB, color='orange', linestyle='--', linewidth=2, label="16 GB/s")
-
-    # Add legend
-    ax.legend(loc="upper left", fontsize=13, frameon=True)
-
+        ax.plot(sorted_times, cdf, label=label_with_pct, color=color, linestyle=ls, linewidth=3)
 
     # Configure axes
     ax.set_xlabel("Inactive Time ($\mu$s)")
     if ylabel:
-        ax.set_ylabel("Size (byte)")
+        ax.set_ylabel("CDF (%)")
     if log_x:
         ax.set_xscale("log")
-    if log_y:
-        ax.set_yscale("log")
+    ax.set_ylim(0, 100)
+    ax.grid(True, which="both", linestyle="-", linewidth=0.5, color="grey")
 
-    ax.grid(which="major", axis="both", linestyle="-", linewidth=0.5, color="grey", zorder=1)
-
-    if y_lim:
-        ax.set_ylim(y_lim[0] or ax.get_ylim()[0], y_lim[1] or ax.get_ylim()[1])
-    ax.set_xlim(ax.get_xlim())
-
-    # Add a colorbar to indicate frequency
-    cbar = plt.colorbar(color_mapper, ax=ax)
-    cbar.set_label("Frequency (log scale)")
+    # Always place legend in the upper-left corner
+    ax.legend(loc="upper left", fontsize=10, frameon=True)
 
 
 
     
-exec(open('../../../results/llama-70B-BS8-L4096/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/llama-8B-BS128-L2048/_pcie4_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank0_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(141)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-plot_cost_model_with_frequency(
-    np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e10)
-)
-ax.text(0.45, -0.34, "(a) Llama3-70B-GPU0 (Stage-0)", \
+size_bins = [
+            (0, 1 << 20),
+            (1 << 20, 10 << 20),
+            (10 << 20, 100 << 20),
+            (100 << 20, 200 << 20),
+            (200 << 20, float("inf"))
+        ]
+plot_cdf_by_size_ranges(np.array(sd_time), np.array(sd_size), ax, True, True, size_bins, ["<1MB", "1–10MB", "10–100MB", "100MB–200MB", ">200MB"])
+
+ax.text(0.45, -0.34, "(a) Llama3-8B", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
 ax.set_xlim(1, 4e8)
 
-exec(open('../../../results/gpt2-40B-BS16-L1024/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/gpt4-40B-BS16-L1024/_pcie64_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank1_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(142)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-plot_cost_model_with_frequency(
-    np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 4e10)
-)
-ax.text(0.45, -0.34, "(b) GPT2-40B-GPU0 (Stage-0)", \
+plot_cdf_by_size_ranges(np.array(sd_time), np.array(sd_size), ax)
+
+ax.text(0.45, -0.34, "(b) GPT2-40B", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
 ax.set_xlim(1, 4e8)
 
-exec(open('../../../results/BertL-BS128-L512/rank0_TensorPeriodLog.py').read())
+exec(open('../../../results/llama-70B-BS64-L2048/_pcie16_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank2_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(143)
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-plot_cost_model_with_frequency(
-    np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 2e10)
-)
-ax.text(0.45, -0.34, "(c) Bert-Large-GPU0 (Stage-0)", \
+plot_cdf_by_size_ranges(np.array(sd_time), np.array(sd_size), ax)
+ax.text(0.45, -0.34, "(c) Llama3-70B", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
-ax.set_xlim(1, 4e7)
+ax.set_xlim(1, 4e9)
 
-exec(open('../../../results/T5-11B-BS32-L512/rank0_pcie4_TensorPeriodLog.py').read())
+exec(open('../../../results/T5-11B-BS256-L512/_pcie4_TensorPeriodLog.py').read())
 # exec(open('../../../results/granite-8B-BS16-L1024/rank3_TensorPeriodLog.py').read())
 ax = Figure.add_subplot(144)
 
+size_bins = [
+            (0, 1 << 20),
+            (1 << 20, 10 << 20),
+            (10 << 20, 50 << 20),
+            (50 << 20, 100 << 20),
+            (200 << 20, float("inf"))
+        ]
+plot_cdf_by_size_ranges(np.array(sd_time), np.array(sd_size), ax, True, True, size_bins, ["<1MB", "1–10MB", "10–50MB", "50MB–100MB", ">100MB"])
+
+
 # plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-plot_cost_model_with_frequency(
-    np.array(sd_time), sd_size, ax, 
-    color_map=cm.Purples, bins=(20,20), y_lim=(None, 2e10)
-)
-ax.text(0.45, -0.34, "(d) T5-11B-GPU0 (Stage-0)", \
+# plot_cdf_by_size_ranges(np.array(sd_time), np.array(sd_size), ax)
+ax.text(0.45, -0.34, "(d) T5-11B", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
-ax.set_xlim(1, 4e7)
+ax.set_xlim(1, 4e8)
 
 Figure.tight_layout(pad=0.8)
 
 PDF.savefig(Figure, bbox_inches='tight')
+Figure.savefig(f"output/tensor_periods_distribution.png", bbox_inches='tight')
 PDF.close()

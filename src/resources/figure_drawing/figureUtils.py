@@ -43,3 +43,6 @@ lst = [f"{x:02x}" for x in range(0, 0xFF, 0x80)]
 colors_test  = [f"#{r}{g}{b}" for r, g, b in itertools.product(lst, lst, lst)]
 
 colors_custom1 = ["#2BC233", "#E67009", "#B21000", "#2489FF"]
+
+colors_new1 = ["#A30543", "#F36F43", "#FBDA83", "#80CBA4", "#4965B0"]
+colors_new2 = ["#7a0101", "#be1420", "#638a66", "#012F48", "#669ABA"]

@@ -99,7 +99,7 @@ def draw_overall_perf_subplot(ax, data_file, include_base=True):
           x = x_tick_array[i, j]
 
           if val == 0:
-              ax.plot(x, 10, 'x', color='red', markersize=10, markeredgewidth=2, zorder=4)
+              ax.plot(x, 0.00007, 'x', color='red', markersize=10, markeredgewidth=2, zorder=4)
           else:
               ax.bar(x, val, color=color_arr[j], width=bar_width, edgecolor=hatch_color, hatch=hatch_arr[j], zorder=3)
               ax.bar(x, val, color="none", width=bar_width, edgecolor="white", linewidth=0.8, zorder=3)
@@ -120,23 +120,18 @@ def draw_overall_perf_subplot(ax, data_file, include_base=True):
 
 
 
-fig, axes = plt.subplots(1, 3, figsize=(27, 4))
+fig, axes = plt.subplots(1, 1, figsize=(11, 4))
 plt.subplots_adjust(top=0.85, bottom=0.15, wspace=0.12)
 
 data_files = [
-    "overall_performance/llama8b.txt",
-    "overall_performance/granite8b.txt",
-    "overall_performance/llama70b.txt",
+    "cost_efficiency/llama70b.txt"
 ]
 
-titles = [
-    "Llama3-8B",
-    "Granite-code-base-8B",
-    "Llama3-70B"]
+titles = ["Llama3-70B"]
 
-for i in range(3):
-    settings = draw_overall_perf_subplot(axes[i], data_files[i], include_base=inc_base)
-    axes[i].set_title(titles[i], fontsize=24)
+for i in range(1):
+    settings = draw_overall_perf_subplot(axes, data_files[i], include_base=inc_base)
+    # axes.set_title(titles[i], fontsize=24)
 
 from matplotlib.patches import Patch
 legend_handles = []
@@ -146,18 +141,18 @@ for j, setting in enumerate(settings):
     legend_handles.append(patch)
 
 fig.legend(handles=legend_handles, frameon=False, loc="upper center", bbox_to_anchor=(0.5, 1.12),
-           ncol=len(settings), columnspacing=2.5, fontsize=24)
+           ncol=3, columnspacing=0.5, fontsize=18)
 
 
 # Common y-axis label
-fig.text(0.075, 0.5, "Training Throughput\n        (token/s)", va='center', rotation='vertical', fontsize=24)
+fig.text(-0.015, 0.5, "Throughput/Cost\n    (token/$*s)", va='center', rotation='vertical', fontsize=21)
 
 # Shared legend (only once)
-handles, labels = axes[0].get_legend_handles_labels()
+handles, labels = axes.get_legend_handles_labels()
 fig.legend(handles, labels, loc="upper center", ncol=5, frameon=False, fontsize=14)
 
-fig.savefig("output/OverallPerfAllModels.png", bbox_inches='tight')
-fig.savefig("output/OverallPerfAllModels.pdf", bbox_inches='tight')
+fig.savefig("output/cost_efficiency.png", bbox_inches='tight')
+fig.savefig("output/cost_efficiency.pdf", bbox_inches='tight')
 
 
 
