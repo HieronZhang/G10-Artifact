@@ -4,17 +4,18 @@
 import os
 import sys
 
-semantics_path = "/nvme2/zhang402/torchtitan-G10/core_semantics"
+semantics_path = "/home/haoyang/Code_repos/G100/G10-Artifact"
 
-directory_names = ["data_8b_128_4k_4ubs/0/semantics.in", "70b_64_2k_1ubs/0/semantics.in", "gpt4-40b_bs16_seq1024/liveness-rank0-step1.liveness", "t5_bs256_seq512/0/semantics.in", "bert_bs768_seq512/0/semantics.in"]
+# directory_names = ["data_8b_64_2k_4ubs/0/semantics.in", "data_70b_16_2k_1ubs/0/semantics.in", "gpt4-40b_bs16_seq1024/liveness-rank0-step1.liveness", "t5_bs256_seq512/0/semantics.in", "data_granite_8b_bs16_seq8k/0/semantics.in"]
+directory_names = ["data_8b_64_2k_4ubs/0/semantics.in", "data_70b_16_2k_1ubs/0/semantics.in", "data_granite_8b_bs16_seq8k/0/semantics.in"]
 
 
 # model_name = ["llama-70B-BS8-L4096", "llama-8B-BS16-L1024", "llama-8B-BS16-L2048", "llama-8B-BS16-L3072", "llama-8B-BS16-L4096", "granite-3B-BS32-L1024", "granite-8B-BS16-L1024", "mistral-7B-BS16-L1024", "gpt4-40B-BS16-L1024", "llama-8B-BS24-L2048", "llama-8B-BS24-L1024", "llama-8B-BS32-L1024", "llama-8B-BS8-L1024", "llama-8B-BS8-L2048", "llama-8B-BS8-L3072", "llama-8B-BS8-L4096", "BertL-BS128-L512"]
 
-model_name = ["llama-8B-BS128-L4096", "llama-70B-BS64-L2048", "gpt4-40B-BS16-L1024", "T5-11B-BS256-L512", "BertL-BS768-L512"]
+model_name = ["llama-8B-BS64-L2048", "llama-70B-BS16-L2048", "Granite-8B-BS16-L8192"]
 
 
-speedups = ["20", "160", "40", "20", "10"]
+speedups = ["10", "10", "10", "10", "10"]
 
 # rank_names = ["liveness-rank0-step1.liveness"]
 
