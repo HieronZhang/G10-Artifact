@@ -1,0 +1,72 @@
+buf0: ExternKernelSchedulerNode(ExternKernelOut)
+buf0.writes = [StarDep(name='buf0')]
+buf0.unmet_dependencies = []
+buf0.met_dependencies = [StarDep(name='primals_1'), StarDep(name='primals_7')]
+buf0.users = [NodeUser(node=SchedulerNode(name='buf1'), can_inplace=True, is_weak=False)]
+buf0.node.kernel = extern_kernels.mm
+
+
+buf1: SchedulerNode(ComputedBuffer)
+buf1.writes = [MemoryDep('buf1', c0, {c0: 32768})]
+buf1.unmet_dependencies = [MemoryDep('buf0', c0, {c0: 32768})]
+buf1.met_dependencies = [MemoryDep('primals_2', c1, {c0: 64, c1: 512})]
+buf1.users = [NodeUser(node=ExternKernelSchedulerNode(name='buf2'), can_inplace=False, is_weak=False), NodeUser(node=OUTPUT, can_inplace=False, is_weak=False)]
+buf1.group.device = cuda:0
+buf1.group.iteration = (32768, 1)
+buf1.sizes = ([64, 512], [])
+class buf1_loop_body:
+    var_ranges = {z0: 64, z1: 512}
+    index0 = 512*z0 + z1
+    index1 = z1
+    def body(self, ops):
+        get_index = self.get_index('index0')
+        load = ops.load('buf0', get_index)
+        get_index_1 = self.get_index('index1')
+        load_1 = ops.load('primals_2', get_index_1)
+        add = ops.add(load, load_1)
+        relu = ops.relu(add)
+        get_index_2 = self.get_index('index0')
+        store = ops.store('buf1', get_index_2, relu, None)
+        return store
+
+
+buf2: ExternKernelSchedulerNode(ExternKernelOut)
+buf2.writes = [StarDep(name='buf2')]
+buf2.unmet_dependencies = [StarDep(name='buf1')]
+buf2.met_dependencies = [StarDep(name='primals_3')]
+buf2.users = [NodeUser(node=SchedulerNode(name='buf3'), can_inplace=True, is_weak=False)]
+buf2.node.kernel = extern_kernels.mm
+
+
+buf3: SchedulerNode(ComputedBuffer)
+buf3.writes = [MemoryDep('buf3', c0, {c0: 32768})]
+buf3.unmet_dependencies = [MemoryDep('buf2', c0, {c0: 32768})]
+buf3.met_dependencies = [MemoryDep('primals_4', c1, {c0: 64, c1: 512})]
+buf3.users = [NodeUser(node=ExternKernelSchedulerNode(name='buf4'), can_inplace=False, is_weak=False), NodeUser(node=OUTPUT, can_inplace=False, is_weak=False)]
+buf3.group.device = cuda:0
+buf3.group.iteration = (32768, 1)
+buf3.sizes = ([64, 512], [])
+class buf3_loop_body:
+    var_ranges = {z0: 64, z1: 512}
+    index0 = 512*z0 + z1
+    index1 = z1
+    def body(self, ops):
+        get_index = self.get_index('index0')
+        load = ops.load('buf2', get_index)
+        get_index_1 = self.get_index('index1')
+        load_1 = ops.load('primals_4', get_index_1)
+        add = ops.add(load, load_1)
+        relu = ops.relu(add)
+        get_index_2 = self.get_index('index0')
+        store = ops.store('buf3', get_index_2, relu, None)
+        return store
+
+
+buf4: ExternKernelSchedulerNode(ExternKernelOut)
+buf4.writes = [StarDep(name='buf4')]
+buf4.unmet_dependencies = [StarDep(name='buf3')]
+buf4.met_dependencies = [StarDep(name='primals_5'), StarDep(name='primals_6')]
+buf4.users = [NodeUser(node=OUTPUT, can_inplace=False, is_weak=False)]
+buf4.node.kernel = extern_kernels.addmm
+
+
