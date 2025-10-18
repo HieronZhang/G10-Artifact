@@ -29,7 +29,7 @@ def plot_search_trace(list, bname: str, ax: plt.Axes, color_list: List[str] = co
         # ax.scatter(np.indices(speedup.shape) / speedup.shape[0], speedup, color=color_list[i], marker="o", s=5, label=f"{bs}", zorder=3)
         # ax.scatter(np.indices(t10_times.shape) / t10_times.shape[0], np.sort(t10_times), color=color_list[i], marker="o", s=10, label=f"{bs}", zorder=3)
         # ax.scatter(np.indices(roller_times.shape) / roller_times.shape[0], np.sort(roller_times), color=color_list[i+1], marker="x", s=10, label=f"{bs}", zorder=3)
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
     # plot line y=1
     #ax.plot(ax.get_xlim(), [1, 1], color="black", linestyle="--", linewidth=2, zorder=2, label="Roller")
 
@@ -38,7 +38,7 @@ def plot_search_trace(list, bname: str, ax: plt.Axes, color_list: List[str] = co
     #ax.yaxis.set_major_formatter(ScalarFormatter())
     #ax.yaxis.set_major_locator(MultipleLocator(base=ytick_base))
 
-    ax.set_ylabel(ylabel)
+    ax.set_ylabel(ylabel, fontsize=14)
     ax.set_xlabel(title)
     
     ax.set_xlim(0, 1)
@@ -46,10 +46,11 @@ def plot_search_trace(list, bname: str, ax: plt.Axes, color_list: List[str] = co
 
     ax.set_xticks(ticks)
     ax.set_xticklabels([f"{x:0.0%}" if x in [0, 0.2, 0.4, 0.6, 0.8, 1] else "" for x in ticks], fontsize=16)
-    upper = 10**7 if ax.get_ylim()[1]<10**7*2 else 10**8*2
-    ut = 8 if ax.get_ylim()[1]<10**7*2 else 9
+    upper = 1 if ax.get_ylim()[1]<10**7*2 else 10**8*2
+    ut = 0
+    # if ax.get_ylim()[1]<10**7*2 else 9
     ax.set_ylim(ax.get_ylim()[0], upper)
-    ax.set_yticks([10**i for i in range(1, ut)])
+    # ax.set_yticks([10**i for i in range(-3, ut)])
 
     # ax.legend(prop={'size':12}, loc="upper left", ncol=1, labelspacing=0.4, columnspacing=1.2)
 
@@ -78,21 +79,21 @@ def plot_search_trace(list, bname: str, ax: plt.Axes, color_list: List[str] = co
 
 Figure = plt.figure(figsize=fig_size)
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_TensorPeriodLog.py').read())
+exec(open('fig-87/token_distribution.py').read())
 ax = Figure.add_subplot(221)
-plot_search_trace(sd_time, "bert", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(a) BERT-128", ylabel="Inactive Time ($\mu $s)")
+plot_search_trace(sd_size, "BS=1", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="CDF of all tokens", ylabel="Ratio of the most frequent \n chosen experts")
 
-exec(open('../../../results/VIT/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(222)
-plot_search_trace(sd_time, "vit", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(b) ViT-512")
+# exec(open('../../../results/granite/granite_bs2_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(222)
+# plot_search_trace(sd_time, "BS=2", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(b) Granite-3B-Base BS=2")
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(223)
-plot_search_trace(sd_time, "resnet", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(c) ResNet152-512", ylabel="Inactive Time ($\mu $s)")
+# exec(open('../../../results/granite/granite_inst_bs1_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(223)
+# plot_search_trace(sd_time, "BS=3", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(c) Granite-3B-Instruct BS=1", ylabel="Inactive Time ($\mu $s)")
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(224)
-plot_search_trace(sd_time, "inception", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(d) Inceptionv3-512")
+# exec(open('../../../results/granite/granite_inst_bs2_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(224)
+# plot_search_trace(sd_time, "BS=4", ax, color_list = [colors[1], colors[3]], linestyles=["-", "--"], labels=["BS1"], title="(d) Granite-3B-Instruct BS=2")
 
 Figure.text(0.5, 0, '% of Tensor Inactive Periods', ha='center', va='center', fontsize=16)
 Figure.tight_layout(pad=1.05)

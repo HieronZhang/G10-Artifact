@@ -154,7 +154,7 @@ def plot_multi_timeline(multi_results, filename, xlabel="Hours", ylabel="Migrate
 from fig_common import *
 
 title = "dnn_mem_consumption_breakdown_active"
-Figure = plt.figure(figsize=(8, 10))
+Figure = plt.figure(figsize=(16, 10))
 PDF = PdfPages("output/" + title + ".pdf")
 
 ACTIVE_NO_TOTAL = 0
@@ -165,7 +165,7 @@ GLOBAL = 4
 
 selection = ACTIVE_NO_TOTAL
 
-exec(open('../../../results/BERT_Base/128-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite/granite_bs1_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -187,7 +187,7 @@ elif selection == ACTIVE_SUM:
 elif selection == GLOBAL:
     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
 ax = Figure.add_subplot(411)
-plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-128", " ", markevery=1, legend=True, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-128", " ", markevery=1, legend=True, yscale_log=True)
 # if selection == ACTIVE_SUM:
 #     print("Fill between")
 #     ax.fill_between(np.arange(len(motiv1["all"])), motiv1["all"], motiv1["weight"], alpha=0.6, color=colors[0])
@@ -195,7 +195,7 @@ plot_timeline(ax, motiv1, "mem_consumption_bert", "CUDA Kernel Index\n(a) BERT-1
 
 
 
-exec(open('../../../results/VIT/512-prefetch_lru_NNMemConsumptionLog.py').read())
+exec(open('../../../results/granite/granite_bs2_NNMemConsumptionLog.py').read())
 live = active
 live_breakdown = active_breakdown
 live_input = [item[0] for item in live_breakdown]
@@ -217,59 +217,59 @@ elif selection == ACTIVE_SUM:
 elif selection == GLOBAL:
     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
 ax = Figure.add_subplot(412)
-plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512", " ", markevery=1, yscale_log=False)
+plot_timeline(ax, motiv1, "mem_consumption_vit", "CUDA Kernel Index\n(b) ViT-512", " ", markevery=1, yscale_log=True)
 
 
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-live_breakdown = active_breakdown
-live_input = [item[0] for item in live_breakdown]
-live_weight = [item[1] + 1 for item in live_breakdown]
-live_intermediate = [item[2] for item in live_breakdown]
-live_sum = [item[0] + item[1] for item in zip(live_weight, live_intermediate)]
-real = total
-global_input = [input_size for _ in real]
-global_weight = [global_weight for _ in real]
-global_intermediate = [s - global_input[0] - global_weight[0] for s in real]
-if selection == ACTIVE_NO_TOTAL:
-    motiv1 = {"weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_TOTAL:
-    motiv1 = {"all" : real, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_INPUT_TOTAL:
-    motiv1 = {"all" : real, "input" : live_input, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_SUM:
-    motiv1 = {"all" : live_sum, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == GLOBAL:
-    motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
-ax = Figure.add_subplot(413)
-plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResNet152-512", " ", markevery=1, yscale_log=False)
+# exec(open('../../../results/ResNet152/512-prefetch_lru_NNMemConsumptionLog.py').read())
+# live = active
+# live_breakdown = active_breakdown
+# live_input = [item[0] for item in live_breakdown]
+# live_weight = [item[1] + 1 for item in live_breakdown]
+# live_intermediate = [item[2] for item in live_breakdown]
+# live_sum = [item[0] + item[1] for item in zip(live_weight, live_intermediate)]
+# real = total
+# global_input = [input_size for _ in real]
+# global_weight = [global_weight for _ in real]
+# global_intermediate = [s - global_input[0] - global_weight[0] for s in real]
+# if selection == ACTIVE_NO_TOTAL:
+#     motiv1 = {"weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_TOTAL:
+#     motiv1 = {"all" : real, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_INPUT_TOTAL:
+#     motiv1 = {"all" : real, "input" : live_input, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_SUM:
+#     motiv1 = {"all" : live_sum, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == GLOBAL:
+#     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
+# ax = Figure.add_subplot(413)
+# plot_timeline(ax, motiv1, "mem_consumption_resnet", "CUDA Kernel Index\n(c) ResNet152-512", " ", markevery=1, yscale_log=False)
 
 
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
-live = active
-live_breakdown = active_breakdown
-live_input = [item[0] for item in live_breakdown]
-live_weight = [item[1] + 1 for item in live_breakdown]
-live_intermediate = [item[2] for item in live_breakdown]
-live_sum = [item[0] + item[1] for item in zip(live_weight, live_intermediate)]
-real = total
-global_input = [input_size for _ in real]
-global_weight = [global_weight for _ in real]
-global_intermediate = [s - global_input[0] - global_weight[0] for s in real]
-if selection == ACTIVE_NO_TOTAL:
-    motiv1 = {"weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_TOTAL:
-    motiv1 = {"all" : real, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_INPUT_TOTAL:
-    motiv1 = {"all" : real, "input" : live_input, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == ACTIVE_SUM:
-    motiv1 = {"all" : live_sum, "weight" : live_weight, "intermediate" : live_intermediate}
-elif selection == GLOBAL:
-    motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
-ax = Figure.add_subplot(414)
-plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Inceptionv3-512", " ", markevery=1, yscale_log=False)
+# exec(open('../../../results/Inceptionv3/512-prefetch_lru_NNMemConsumptionLog.py').read())
+# live = active
+# live_breakdown = active_breakdown
+# live_input = [item[0] for item in live_breakdown]
+# live_weight = [item[1] + 1 for item in live_breakdown]
+# live_intermediate = [item[2] for item in live_breakdown]
+# live_sum = [item[0] + item[1] for item in zip(live_weight, live_intermediate)]
+# real = total
+# global_input = [input_size for _ in real]
+# global_weight = [global_weight for _ in real]
+# global_intermediate = [s - global_input[0] - global_weight[0] for s in real]
+# if selection == ACTIVE_NO_TOTAL:
+#     motiv1 = {"weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_TOTAL:
+#     motiv1 = {"all" : real, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_INPUT_TOTAL:
+#     motiv1 = {"all" : real, "input" : live_input, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == ACTIVE_SUM:
+#     motiv1 = {"all" : live_sum, "weight" : live_weight, "intermediate" : live_intermediate}
+# elif selection == GLOBAL:
+#     motiv1 = {"all" : real, "input" : global_input, "weight" : global_weight, "intermediate" : global_intermediate}
+# ax = Figure.add_subplot(414)
+# plot_timeline(ax, motiv1, "mem_consumption_incept", "CUDA Kernel Index\n(d) Inceptionv3-512", " ", markevery=1, yscale_log=False)
 
 
 

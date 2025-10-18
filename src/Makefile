@@ -32,7 +32,7 @@ YACC = bison
 # We want debugging and most warnings, but lex/yacc generate some
 # static symbols we don't use, so turn off unused warnings to avoid clutter
 # Also STL has some signed/unsigned comparisons we want to suppress
-CFLAGS = -g -Wall -Wno-unused -Wno-sign-compare -O3
+CFLAGS = -g -Wall -Wno-unused -Wno-sign-compare
 
 # The -d flag tells lex to set up for debugging. Can turn on/off by
 # setting value of global yy_flex_debug inside the scanner itself

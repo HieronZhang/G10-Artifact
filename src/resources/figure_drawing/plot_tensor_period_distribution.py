@@ -10,7 +10,7 @@ PDF = PdfPages( "output/tensor_periods_distribution.pdf" )
 
 
 
-def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: bool = True, log_x: bool = True, log_y: bool = True, y_lim: Tuple[float, float] = None, plot_line_slope: float = 1717.986918):
+def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: bool = True, log_x: bool = True, log_y: bool = False, y_lim: Tuple[float, float] = None, plot_line_slope: float = 1717.986918):
     '''
     color_list[0] for T10, color_list[1:] for baseline_points;
     baseline_points: [poplib (mem, time), roller (mem, time)]
@@ -38,9 +38,9 @@ def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: b
 
     # set xtick labels the same as ytick labels
     ax.xaxis.set_major_locator(LogLocator(10, subs=(1.0,), numticks=8))
-    ax.yaxis.set_major_locator(LogLocator(10, subs=(1.0,), numticks=8))
+    # ax.yaxis.set_major_locator(LogLocator(10, subs=(1.0,), numticks=8))
     ax.xaxis.set_minor_locator(LogLocator(10, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=8))
-    ax.yaxis.set_minor_locator(LogLocator(10, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=8))
+    # ax.yaxis.set_minor_locator(LogLocator(10, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=8))
     ax.grid(which="major", axis="both", linestyle="-", linewidth=0.5, color="grey", zorder=1)
 
     if y_lim:
@@ -51,37 +51,37 @@ def plot_cost_model(times, sizes, ax: plt.Axes, color_list: List[str], ylabel: b
 
 
     
-exec(open('../../../results/BERT_Base/128-prefetch_lru_TensorPeriodLog.py').read())
+exec(open('fig-87/token_distribution.py').read())
 ax = Figure.add_subplot(221)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e8))
-ax.text(0.45, -0.34, "(a) BERT-128", \
+plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 1))
+ax.text(0.45, -0.34, "Granite-3b-code-base, BS=1", \
   horizontalalignment='center', verticalalignment='center', \
   transform=ax.transAxes)
-ax.set_xlim(1, 1e7)
+ax.set_xlim(0, 1e4)
 
-exec(open('../../../results/VIT/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(222)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e8))
-ax.text(0.45, -0.34, "(b) ViT-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 4e6)
+# exec(open('../../../results/granite/granite_bs2_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(222)
+# plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e8))
+# ax.text(0.45, -0.34, "Granite-3b-code-base, BS=2", \
+#   horizontalalignment='center', verticalalignment='center', \
+#   transform=ax.transAxes)
+# ax.set_xlim(1, 4e6)
 
-exec(open('../../../results/ResNet152/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(223)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e9))
-ax.text(0.45, -0.34, "(c) ResNet152-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 2e8)
+# exec(open('../../../results/granite/granite_inst_bs1_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(223)
+# plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], y_lim=(None, 4e9))
+# ax.text(0.45, -0.34, "Granite-3b-code-instruct, BS=1", \
+#   horizontalalignment='center', verticalalignment='center', \
+#   transform=ax.transAxes)
+# ax.set_xlim(1, 2e8)
 
-exec(open('../../../results/Inceptionv3/512-prefetch_lru_TensorPeriodLog.py').read())
-ax = Figure.add_subplot(224)
-plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e9))
-ax.text(0.45, -0.34, "(d) Inceptionv3-512", \
-  horizontalalignment='center', verticalalignment='center', \
-  transform=ax.transAxes)
-ax.set_xlim(1, 1e8)
+# exec(open('../../../results/granite/granite_inst_bs2_TensorPeriodLog.py').read())
+# ax = Figure.add_subplot(224)
+# plot_cost_model(np.array(sd_time), sd_size, ax, ["forestgreen", "peru", "royalblue"], ylabel=False, y_lim=(None, 4e9))
+# ax.text(0.45, -0.34, "Granite-3b-code-instruct, BS=2", \
+#   horizontalalignment='center', verticalalignment='center', \
+#   transform=ax.transAxes)
+# ax.set_xlim(1, 1e8)
 
 Figure.tight_layout(pad=0.8)
 

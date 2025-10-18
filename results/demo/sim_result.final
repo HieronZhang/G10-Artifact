@@ -1,6 +1,6 @@
-total_exe_time = 585.446
-total_time_breakdown_stall = 181.237
-total_time_breakdown_overlap = 404.143
-total_time_breakdown_executionOnly = 0.0662141
-total_ssd2gpu_byte = 990875648
-total_gpu2ssd_byte = 23063670784
+total_exe_time = 11786.6
+total_time_breakdown_stall = 11735
+total_time_breakdown_overlap = 42.696
+total_time_breakdown_executionOnly = 8.96838
+total_ssd2gpu_byte = 20201455616
+total_gpu2ssd_byte = 30864769024
